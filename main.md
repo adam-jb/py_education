@@ -580,6 +580,8 @@ for i in itertools.zip_longest('ABCD', 'xyK', fillvalue='-'):
 
 
 ```
+itertools.starmap is used instead of map() when argument parameters are already grouped in tuples from a single iterable (the data has been “pre-zipped”). The difference between map() and starmap() parallels the distinction between function(a,b) and function(*c).”
+
 
 
 
@@ -1400,6 +1402,500 @@ platform.uname()
 
 ## threading
 
+In CPython (aka base python), due to the Global Interpreter Lock, only one thread can execute Python code at once
+
+Threads share the same memory space.
+
+
+
+
+Writing to typed dict in using threading, though this only uses one thread at once:
+```
+# Could read distributed GCS files to append as memory is shared
+import numba
+import threading
+value_float = numba.float64
+
+typed_dict = Dict.empty(
+    key_type=value_float,
+    value_type=value_float
+    )
+
+def update_dict(n):
+    global typed_dict
+    typed_dict[n] = n + 1
+
+# Create a thread for each operation
+threads = []
+for i in range(8):
+    t = threading.Thread(target=update_dict, args=(i+1,))
+    threads.append(t)
+
+# Start the threads
+for t in threads:
+    t.start()
+
+# Wait for the threads to finish
+for t in threads:
+    t.join()
+
+print(typed_dict)
+```
+
+Q: how does thread write to shared object in memory?
+A: only one thread operates at once
+
+
+spawn: This method creates a new process by executing a new Python interpreter in a separate process. This is the most resource-intensive method, as it requires starting a new Python interpreter, but it is also the most flexible, as it allows you to create processes that are completely independent of the parent process.
+
+fork: This method creates a new process by creating a copy of the current process using the os.fork() function. This method is faster and more efficient than spawn, but it is limited to Unix-based systems and requires the parent process to be written in Python.
+
+forkserver: This method creates a new process by starting a separate process called a "server" that is responsible for creating new processes. This method is faster and more efficient than spawn, and it works on both Unix-based and Windows systems, but it requires a little more setup and is not as flexible as the other methods.
+
+
+
+
+## multiprocess
+
+Run separate processes - similar to Queue:
+```
+from multiprocessing import Process
+def print_func(continent='Asia'):
+    print('The name of continent is : ', continent)
+if __name__ == "__main__":  # confirms that the code is under main function
+    names = ['America', 'Europe', 'Africa']
+    procs = []
+    proc = Process(target=print_func)  # instantiating without any argument
+    procs.append(proc)
+    proc.start()
+    # instantiating process with arguments
+    for name in names:
+        proc = Process(target=print_func, args=(name,))
+        procs.append(proc)
+        proc.start()
+    print(f'procs ready to run: {procs}')
+    # run the processes
+    for proc in procs:
+        proc.join()
+```
+
+A Queue is for one-way sending of objects; a Pipe is for two-way sending.
+
+```
+# in the case of Pipe(), everything happens wherever we call parent_conn.recv()
+# whereas if using Process() alone it happens on p.join()
+from multiprocessing import Process, Pipe
+
+def f(conn, intval):
+    conn.send([intval, None, 'hello'])
+    conn.close()
+    print(intval)
+
+if __name__ == '__main__':
+    parent_conn, child_conn = Pipe()
+    procs = []
+    for i in range(3):
+        p = Process(target=f, args=(child_conn,i,))
+        procs.append(p)
+        p.start()
+        #print(parent_conn.recv())   # prints "[42, None, 'hello']"
+    print('done')
+    for p in procs:
+        print(parent_conn.recv())
+        p.join()
+```
+
+Using semaphore to limit number of processes to 2:
+```
+from time import sleep
+from random import random
+from multiprocessing import Process
+from multiprocessing import Semaphore
+ 
+# target function
+def task(semaphore, number):
+    # attempt to acquire the semaphore
+    with semaphore:
+        # simulate computational effort
+        value = random() * 3
+        sleep(value)
+        # report result
+        print(f'Process {number} got {value}')
+ 
+# entry point
+if __name__ == '__main__':
+    # create the shared semaphore
+    semaphore = Semaphore(2)
+    # create processes
+    processes = [Process(target=task, args=(semaphore, i)) for i in range(10)]
+    # start child processes
+    for process in processes:
+        process.start()
+    # wait for child processes to finish
+    for process in processes:
+        process.join()
+```
+
+
+Perform multiproc on an array of shared type.
+
+May be possible to make 2d array from c_double and store that in custom dict-like or array-like Structure. 
+
+May be able to treat a 1d array as a 2d array using a pointer()
+```
+from multiprocessing import Process, Lock
+from multiprocessing.sharedctypes import Value, Array
+from ctypes import Structure, c_double
+from numba.typed import Dict
+from numba.types import int64
+
+class Point(Structure):
+    _fields_ = [('node_id', c_double), ('node_value', c_double)]
+
+def modify(A):
+    for i in range(len(A)):
+        A[i] = A[i] + 10
+        
+def process_structure(A):
+    for a in A:
+        print(a.node_id)
+
+if __name__ == '__main__':
+    
+    print('start')
+    lock = Lock()
+    
+    A = Array(c_double, [1.875,-6.25, 9.5], lock=lock)
+    print(A)
+            
+    for i in range(3):
+        p = Process(target=modify, args=(A,))
+        p.start()
+        
+    for i in range(3):
+        p.join()
+
+    for a in A:
+        print(a)
+        
+    # another process for our new Point structure  
+    struct_array = Array(Point, [(1.875,-6.25), (-5.75,2.0), (2.375,9.5)], lock=lock)
+    p = Process(target=process_structure, args=(struct_array,))
+    p.start()
+    p.join()
+```
+
+The main difference between mp.Pool.apply() and mp.Pool.apply_async() is that apply() blocks until the result is available, while apply_async() returns a ApplyResult object, which represents the result of the function call.
+
+
+Using lock as context manager:
+```
+with some_lock:
+    # do something...
+```
+
+A primitive lock is in one of two states, “locked” or “unlocked”. It is created in the unlocked state. It has two basic methods, acquire() and release(). Can also acquire/release by using the lock as a context manager:
+```
+import threading
+
+# Create a lock object
+lock = threading.Lock()
+
+# Define a shared resource
+shared_resource = 0
+
+def update_resource(value):
+    global shared_resource
+    # Acquire the lock to synchronize access to the shared resource
+    with lock:    
+        shared_resource += value
+
+# Define a thread that updates the shared resource
+def thread_function(value):
+    for i in range(10):
+        update_resource(value)
+
+# Create and start two threads that will update the shared resource concurrently
+thread1 = threading.Thread(target=thread_function, args=(1,))
+thread2 = threading.Thread(target=thread_function, args=(2,))
+thread1.start()
+thread2.start()
+
+# Wait for the threads to finish
+thread1.join()
+thread2.join()
+
+# Print the final value of the shared resource
+print(f"Final value of shared resource: {shared_resource}")
+```
+
+Event object for comms between threads: one thread signals an event and other threads wait for it.
+
+A condition variable allows one or more threads to wait until they are notified by another thread. Otherwise works much like a lock.
+
+Barrier object: to synchronize the execution of multiple threads and ensure that certain tasks are performed in a specific order. The below blocks the thread until the required number of threads (in this case, 3) have arrived at the barrier:
+```
+import threading
+
+# Create a barrier with a capacity of 3 threads
+barrier = threading.Barrier(3)
+
+# Define a function that will be run by each thread
+def thread_function(n):
+    print(f"Thread {n} waiting at barrier...")
+    # Wait for the other threads to arrive at the barrier
+    barrier.wait()
+    print(f"Thread {n} passed the barrier.")
+
+# Create and start three threads
+threads = []
+for i in range(3):
+    t = threading.Thread(target=thread_function, args=(i,))
+    t.start()
+    threads.append(t)
+
+for t in threads:
+    t.join()
+
+```
+
+
+
+THE GIL isn't held for threading when it comes to io. Haven't tested the below on larger files to confirm whether it is using multiple cores or not
+```
+# this may be using multiple cores for threading io
+import threading
+
+d = {}
+
+def process_data(data):
+    # Perform some I/O operations on the data
+    result = data.lower()
+    return result
+
+def write_read_data_from_file(filename):
+    with open(filename, 'w') as f:
+        f.write('haha')
+    
+    with open(filename, 'r') as f:
+        data = f.read()
+        
+    d[filename] = data
+    return data
+
+def thread_function(filename):
+    data = write_read_data_from_file(filename)
+    result = process_data(data)
+    print(filename)
+    
+# Create a thread for each file
+filenames = ['example_txts/file' + str(i) + '.txt' for i in range(20)]
+threads = []
+for filename in filenames:
+    thread = threading.Thread(target=thread_function, args=(filename,))
+    thread.start()
+    threads.append(thread)
+
+# Wait for all threads to finish
+for thread in threads:
+    thread.join()
+
+print("All threads have finished.")
+```
+
+Threads will run on different processors / cores as the operating system chooses, they just won't run concurrently. This includes concurrent.futures.threadpoolexecutor()
+
+Numba gives option of releasing the gil. Which may be different to parallel=True:
+```
+@jit(nogil=True)
+def f(x, y):
+    return x + y
+```
+
+
+Use ProcessPoolExecutor to assign to multiple cores:
+```
+import concurrent.futures
+
+# execute a task
+def task(value):
+    print(value)
+    return value
+
+# protect the entry point
+if __name__ == '__main__':
+    # create the pool with the default number of workers
+    with concurrent.futures.ProcessPoolExecutor() as exe:
+        # issue some tasks and collect futures
+        futures = [exe.submit(task, i) for i in range(50)]
+        # process results as tasks are completed
+        for future in concurrent.futures.as_completed(futures):
+            print(f'>got {future.result}')
+        # issue one task for each call to the function
+        for result in exe.map(task, range(50)):
+            print(f'>got {result}')
+    # report that all tasks are completed
+    print('Done')
+```
+
+
+
+
+## multiprocessing.shared_memory
+
+Avoids the need to send messages between processes containing that data.
+
+Once you've made a shareablelist you can't append to it
+
+You can overwrite data so long as it doesn't exceed the overall memory assigned
+
+```
+from multiprocessing.shared_memory import ShareableList
+a = ShareableList(['howdy', b'HoWdY', -273.154, 100, None, True, 42])
+a[2] = -78.5
+
+# shows amount of memory assigned
+print(a.shm)  
+
+
+
+b = ShareableList([i for i in range(10_000)])
+b[3] = 'ha'
+print(b.shm)
+```
+
+
+
+
+
+## concurrent.futures
+
+The asynchronous execution can be performed with threads, using ThreadPoolExecutor, or separate processes, using ProcessPoolExecutor. Both implement the same interface, which is defined by the abstract Executor class.
+
+Gives ProcessPoolExecutor and ThreadPoolExecutor
+
+Future instances are created by Executor.submit() and should not be created directly except for testing. See example of future object being returned below:
+```
+import concurrent.futures
+
+# Define a function that returns the result of a long-running computation
+def long_running_function(n):
+    # Simulate a long-running computation by sleeping for n seconds
+    import time
+    time.sleep(n)
+    return n * n
+
+# Create a ThreadPoolExecutor with a single worker thread
+with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+    # Submit a call to the long-running function to be executed asynchronously
+    future = executor.submit(long_running_function, 1.2)
+
+    # Wait for the result to be available
+    result = future.result()
+    print(f"Result: {result}")
+```
+
+concurrent.futures.wait() : Wait for the Future instances to complete. Related to syncing up all threads before continuing
+
+Synchronization primitives are tools that can be used to coordinate the execution of multiple threads or processes and synchronize access to shared resources. They are often used to prevent race conditions. 
+
+Synchronization primitives include:
+- locks
+- semaphores
+- conditions
+- events
+
+
+
+
+## contextvars
+
+Using context variables to hold different values for a single variable name for each thread
+
+```
+import concurrent.futures
+import contextvars
+
+# Create a ContextVar to store a user's ID
+user_id = contextvars.ContextVar("user_id")
+
+# Define a function that retrieves the user's ID from the ContextVar
+def get_user_id():
+    return user_id.get()
+
+# Define a function that sets the user's ID in the ContextVar
+def set_user_id(id):
+    user_id.set(id)
+
+# Create a ThreadPoolExecutor with a single worker thread
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    
+    # Submit calls
+    fut = []
+    for i in range(4):
+        f = executor.submit(set_user_id, i)
+        f = executor.submit(get_user_id, )
+        fut.append(f)
+        
+    # view results
+    for f in fut:
+        print(f.result())
+```
+
+
+
+
+## subprocess
+
+subprocess functions are intended to replace os.system() and os.spawn*
+
+Main funcs are run() and Popen()
+
+The main difference is that subprocess.run() executes a command and waits for it to finish, while with subprocess.Popen you can continue doing your stuff while the process finishes and then just repeatedly call Popen.communicate() yourself to pass and receive data to your process
+
+subprocess.run() just wraps Popen and Popen.communicate() so you don't need to make a loop to pass/receive data or wait for the process to finish.
+
+```
+# Runs 'ls -la' bash command
+import subprocess
+subprocess.run(["ls", "-la"])
+
+
+# as above, where 'out' is a subprocess.CompletedProcess class holding the output
+out = subprocess.run(["ls", "-la"])
+out.stdout
+
+subprocess.Popen(["ls", "-la"])
+
+```
+
+
+
+## signal
+
+signal.signal() function allows defining custom handlers to be executed when a signal is received.
+
+A Python signal handler does not get executed inside the low-level (C) signal handler. Instead, the low-level signal handler sets a flag which tells the virtual machine to execute the corresponding Python signal handler at a later point(for example at the next bytecode instruction). 
+
+The below will run signal_handler() before ending it when terminates the code with ctrl+c
+```
+import signal
+
+# Define a signal handler function
+def signal_handler(signum, frame):
+    print(f"\nReceived signal {signum} so elegantly ending the program")
+
+# Register the signal handler for the SIGINT signal (Ctrl+C)
+signal.signal(signal.SIGINT, signal_handler)
+
+# Wait for a signal to be received
+print("Waiting for signal...")
+signal.pause()
+```
+
+
+
+## asyncio
 
 
 
@@ -1412,6 +1908,10 @@ platform.uname()
 
 
 
+
+
+
+multiprocessing is less good for io as doesn't share memory: but what if you're using shared_memory?
 
 Use of Union[list, set] ?
 
@@ -1427,6 +1927,8 @@ differnce between registering and inheriting in python?
 
 ## other things
 
+semaphore = synchronization object that controls access by multiple processes or threads. Typically used to synchronize access to a shared resource, such as a shared memory location or a file, in order to prevent data races and other synchronization issues.
+
 persistence = save the state of an object or data structure to a file or database, so that it can be restored later
 
 serialisation = converting an object or data structure into a format that can be easily stored or transmitted, such as a string of bits or bytes
@@ -1434,6 +1936,10 @@ serialisation = converting an object or data structure into a format that can be
 constructor = special method that is called when an object is created. Its purpose is to initialize the object's state, which includes setting any initial values for the object's attributes (i.e., instance variables).
 
 Thread-safe = ability of a piece of code, data structure, or API to be used safely by multiple threads concurrently
+
+multiplexing = technique that allows multiple streams of data to be transmitted over a single communication channel or link. It is often used in networking and communication systems to efficiently utilize resources and maximize the amount of data that can be transmitted in a given time.
+
+memory-mapped files = 
 
 
 ```
