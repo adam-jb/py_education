@@ -2436,34 +2436,91 @@ class ThreadingUDPServer(ThreadingMixIn, UDPServer):
 Ideas:
 - use multiprocessing to create new workers in response to new requests
 - make cache to store most recent
-- forward to another page
-- return something to user
 
-This prints things to console when user goes to URL, but doesn't return anything to them.
+To allow the user to access the HTML text, you can modify the MyHandler class to include the necessary HTTP headers and send them to the client along with the HTML code.
 ```
 import socketserver
-import threading
+import requests
 
+class MyHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        html_code = '<html><body>Hello World!</body></html>'
+        
+        # If you wanted to fwd the request to the endpoint
+        #endpoint_url = "http://localhost:9900"
+        #response = requests.get(endpoint_url)
+        
+        # Build the HTTP response
+        response = f"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {len(html_code)}\r\n\r\n{html_code}"
+        print(f'response:\n{response}')
+
+        # Send the HTTP response to the client
+        self.request.sendall(response.encode())
+        
 class LoadBalancer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    # Override the process_request method to distribute incoming requests to a pool of worker threads
     def process_request(self, request, client_address):
+    #def process_request(self):
         print('hi')
         print(f'request: {request}')
         print(f'client_address: {client_address}')
-        return 'hahaha'
-        """
-        # Create a new worker thread to handle the request
-        t = threading.Thread(target=self.process_request_thread, args=(request, client_address))
-        # Start the worker thread
-        t.start()
-        """
+        
+        # this ensures MyHandler() is called, as MyHandler is the RequestHandlerClass of this class
+        self.RequestHandlerClass(request, client_address, self)
+        
 if __name__ == "__main__":
     # Create a load balancer server
-    server = LoadBalancer(("0.0.0.0", 8080), socketserver.BaseRequestHandler)
+    server = LoadBalancer(("0.0.0.0", 8080), MyHandler)
     # Start the server
     server.serve_forever()
 
 ```
+
+And the above modified to handle errors:
+```
+
+import socketserver
+import requests
+
+class MyHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+
+        endpoint_url = "http://localhost:9900"
+        try:
+            response = requests.get(endpoint_url)
+            self.request.sendall(response.encode())
+            return 0
+        except requests.ConnectionError:
+            # Return an HTTP response with a status code "503 Service Unavailable" if the endpoint is not reachable
+            http_response = "HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: 20\r\n\r\nEndpoint is unreachable"
+            self.request.sendall(http_response.encode())
+            return 1
+        except requests.Timeout:
+            # Return an HTTP response with a status code "504 Gateway Timeout" if the request to the endpoint times out
+            http_response = "HTTP/1.1 504 Gateway Timeout\r\nContent-Type: text/plain\r\nContent-Length: 19\r\n\r\nEndpoint timed out"
+            self.request.sendall(http_response.encode())
+            return 1
+        
+class LoadBalancer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    def process_request(self, request, client_address):
+    #def process_request(self):
+        print('hi')
+        print(f'request: {request}')
+        print(f'client_address: {client_address}')
+        
+        # this ensures MyHandler() is called, as MyHandler is the RequestHandlerClass of this class
+        self.RequestHandlerClass(request, client_address, self)
+        
+if __name__ == "__main__":
+    # Create a load balancer server
+    server = LoadBalancer(("0.0.0.0", 8080), MyHandler)
+    # Start the server
+    server.serve_forever()
+
+    
+
+
+```
+
 
 
 ## logging with timeit
