@@ -1344,6 +1344,33 @@ Can use handlers to send messages to different locations and file types.
 
 
 
+## Searching big logs
+
+One recommmendation is grep and awk, as they are v fast. Or mmap as below
+
+```
+# https://stackoverflow.com/questions/66071560/searching-through-a-large-text-or-log-file-10gb
+import logging
+import os
+import mmap
+import re
+logfilepath=filename=os.getcwd()+'/example.log'
+logging.basicConfig(filename=logfilepath, encoding='utf-8', level=logging.DEBUG)
+logging.debug('This message should go to the log file')
+logging.info('So should this')
+haha = 3
+logging.warning(f'And this, too {haha}')
+logging.error('And non-ASCII stuff, too, like Øresund and Malmö')
+print(f'written to {logfilepath}')
+
+f = open(logfilepath, "r")
+mm = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ)
+search_res = re.search(b"message", mm)
+print([search_res.start(), search_res.end()])
+```
+
+
+
 
 
 ## getpass
@@ -1897,10 +1924,369 @@ signal.pause()
 
 ## asyncio
 
+a Future represents an eventual result of an asynchronous operation.
+
+often wrap a coroutine into a task, eg:
+```
+async def the_func(a):
+    print(a)
+the_task = asyncio.create_task(the_func(1))
+```
+
+```
+# prefacing a func def with 'async' makes it a coroutine
+async
+asyncio.run(aysnc)
+
+```
+
+ shield() wraps a task (which wraps a coroutine) which makes it harder to cancel the execution of the coroutine
+
+
+Can force a task to timeout:
+```
+async with asyncio.timeout(10):
+	await long_running_task()
+```
+
+```
+# input is an iterable
+done, pending = await asyncio.wait(input)
+```
+
+asyncio.to_thread()  To run a coroutine in another thread
+
+An event loop runs in a thread (typically the main thread) and executes all callbacks and Tasks in its thread. While a Task is running in the event loop, no other Tasks can run in the same thread. When a Task executes an await expression, the running Task gets suspended, and the event loop executes the next Task.
+
+Thread-safe code is code that will work even if many Threads are executing it simultaneously.
+
+Key functions:
+```
+# run() 	
+# Create event loop, run a coroutine, close the loop.
+async def main():
+    await asyncio.sleep(1)
+    print('hello')
+
+asyncio.run(main())
+
+
+
+# Task
+# A Future-like object that runs a Python coroutine. Not thread-safe
+# Can do things like cancel a task
+import asyncio
+async def do_thing():
+    print('hi')
+
+task = asyncio.create_task(do_thing())
+task.cancel()
+try:
+	print(asyncio.current_task())     # view current task on thread
+    await task
+except asyncio.CancelledError:
+    print("main(): cancel_me is cancelled now")
+
+
+# wait_for: timeouts
+asyncio.wait_for()
+
+
+# schedule and wait for multiple tasks concurrently
+asyncio.gather()
+
+
+# run function in a new thread. Unclear when would use this over threading library
+asyncio.to_thread()
 
 
 
 
+# Submit a coroutine to the given event loop. Thread-safe.
+# can be used to submit a coroutine to another event loop
+# function is meant to be called from a different OS thread than the one where the event loop is running
+run_coroutine_threadsafe()
+
+
+
+# asyncio.as_completed() runs awaitable objects from an iterable concurrently. Return an iterator of coroutines.
+import asyncio
+async def do_thing(i):
+    print('hi')
+    return i
+
+tasks = []
+for i in range(100):  
+    task = asyncio.create_task(do_thing(i))
+    tasks.append(task)
+
+for coro in asyncio.as_completed(tasks):
+    earliest_result = await coro 
+    print(earliest_result)   # this only prints when above line is done for all 100. 
+                            # earliest_result is an int, but all 100 vals are printed (it may be different for each 
+                            # coroutine)
+
+
+
+# view running event loop or that set by the current policy, or switch to one or make new one
+asyncio.get_running_loop()
+asyncio.get_event_loop()
+asyncio.set_event_loop()
+asyncio.new_event_loop()
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+
+## mmap
+
+Memory-mapped file objects behave like both bytearray and like file objects. You can use mmap objects in most places where bytearray are expected; for example, you can use the re module to search through a memory-mapped file. 
+
+
+
+Use mmap to read in all rows of logs starting with 'ERROR'
+```
+import re
+import mmap
+import os
+logfilepath=filename=os.getcwd()+'/example.log'
+
+with open(logfilepath, "r") as f:
+    mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+    # Search for the pattern "error" in the file
+    start = mm.find(b"ERROR")
+    end = mm.find(b"\n", start)
+    error_lines = []
+    
+    while start != -1 and end != -1:
+        
+        # Extract the line containing the pattern and decode it
+        line = mm[start:end].decode()
+        
+        # Append the line to the list of error lines
+        error_lines.append(line)
+        
+        # Search for the next occurrence of the pattern
+        start = mm.find(b"ERROR", end)
+        end = mm.find(b"\n", start)
+        print(start)
+        
+    # Close the memory-mapped file
+    mm.close()
+
+# Print the list of error lines
+print(error_lines)
+```
+
+
+Get whole line of log featuring 'ASCII'
+```
+import re
+import mmap
+import os
+logfilepath=filename=os.getcwd()+'/example.log'
+
+with open(logfilepath, "r") as f:
+    mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+    # Search for the pattern "error" in the file
+    start = mm.find(b"ASCII")
+    end = mm.find(b"\n", start)
+    
+    # rfind() searches from the end ('start' in this case) to the beginning: ie, in reverse 
+    line_start = mm.rfind(b'\n', 0, start)
+    
+    error_lines = []
+    
+    while start != -1 and end != -1:
+        
+        # Extract the line containing the pattern and decode it
+        line = mm[line_start:end].decode()
+        
+        # Append the line to the list of error lines
+        error_lines.append(line)
+        
+        # Search for the next occurrence of the pattern
+        start = mm.find(b"ASCII", end)
+        previous_instance_end = end
+        end = mm.find(b"\n", start)
+        line_start = mm.rfind(b'\n', previous_instance_end, start)
+        
+    # Close the memory-mapped file
+    mm.close()
+
+# Print the list of error lines
+print(error_lines)
+```
+
+
+To use context managers and read one line at a time
+```
+with open(logfilepath, "r+b") as f:
+    # memory-map the file, size 0 means whole file
+    with mmap.mmap(f.fileno(), 0) as mm:
+        print(mm.readline())
+        print(mm.readline())
+```
+
+
+To loop through each line:
+```
+with open(logfilepath, "r+b") as f:
+    with mmap.mmap(f.fileno(), 0) as mm:
+        myline = mm.readline()
+        while myline:
+            print(myline)
+            myline = mm.readline()
+        mm.close()   
+```
+
+
+
+## unittest
+
+Methods in a class inheriting from unittest.TestCase should start with 'test' so unittest can pick up on them. 
+
+Use assertRaises() to verify that a specific exception gets raised
+
+The basic building blocks of unit testing are test cases — single scenarios that must be set up and checked for correctness. To make your own test cases you must write subclasses of TestCase or use FunctionTestCase. eg:
+```
+# this checks our Widget has the right dimensions
+import unittest
+import numpy as np
+
+def Widget():
+    ar = np.random.rand(50,50)
+    return ar
+
+class DefaultWidgetSizeTestCase(unittest.TestCase):
+    def test_default_widget_size(self):
+        widget = Widget()
+        self.assertEqual(widget.shape, (50, 50))
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+Can add lines to create widget so only make it once:
+```
+import unittest
+import numpy as np
+
+def Widget():
+    ar = np.random.rand(50,50)
+    return ar
+
+class DefaultWidgetSizeTestCase(unittest.TestCase):
+    def setUp(self):
+        self.widget = Widget()
+        
+    def test_default_widget_size(self):
+        self.assertEqual(self.widget.shape, (50, 50))
+        
+    def tearDown(self):
+        del self.widget
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+```
+# run tests using all files _test.py in 'tests' folder
+python -m unittest discover -p "*_test.py" tests
+
+# same in current dir
+python -m unittest discover -p "*_test.py" .
+```
+
+Test code can be run standalone from the command line, and should be 
+
+Can set to skip tests under certain conditions by decorating the methods in a unittest.TestCase class:
+```
+@unittest.skip
+@unittest.skipIf
+@unittest.skipUnless
+@unittest.expectedFailure    # will only pass if the test fails
+```
+
+Use subTest method of self (which comes with unittest.TestCase) to keep running all tests even if one fails, rather than stopping on the first failure
+```
+class NumbersTest(unittest.TestCase):
+    def test_even(self):
+        """
+        Test that numbers between 0 and 5 are all even.
+        """
+        for i in range(0, 6):
+            with self.subTest(i=i):
+                self.assertEqual(i % 2, 0)
+```
+
+If writing tests, good reference is the [assertion methods available](https://docs.python.org/3/library/unittest.html#assert-methods)
+
+
+
+
+## typing
+
+For type hinting
+
+Basic func specifying types - these are for info only and aren't enforced by python:
+```
+def greeting(name: str) -> str:
+    return 'Hello ' + name
+greeting('adam')
+```
+
+This will show float and list[float] as inputs when you hover over function in jupyter with shift_tab. Plus the docstring:
+```
+Vector = list[float]
+
+def scale(scalar: float, vector: Vector) -> Vector:
+    """
+    Function which scales inputs by a factor 'scalar'
+
+    scale = input float value
+    vector = the thing we multiply by
+    """
+    return [scalar * num for num in vector]
+
+# passes type checking; a list of floats qualifies as a Vector.
+new_vector = scale(2.0, [1.0, -4.2, 5.4])
+```
+
+Available types include:
+```
+dict
+tuple
+set
+str
+float
+int
+list
+```
+
+collections.abc provides types including:
+```
+Mapping
+Sequence
+Callable
+Sized
+Iterable 
+Iterator
+```
+
+typing also lets you make NewType for custom type to hint at
+
+[More types are here](https://docs.python.org/3/library/typing.html#special-typing-primitives)
 
 
 
@@ -1939,7 +2325,13 @@ Thread-safe = ability of a piece of code, data structure, or API to be used safe
 
 multiplexing = technique that allows multiple streams of data to be transmitted over a single communication channel or link. It is often used in networking and communication systems to efficiently utilize resources and maximize the amount of data that can be transmitted in a given time.
 
-memory-mapped files = 
+memory-mapped files = memory maps let you access the contents of the file using standard memory access operations, even if the entire file does not fit in memory. The operating system will automatically page the contents of the file in and out of memory as needed.
+
+Test discovery = process of finding and running test cases in a test suite.
+
+regression test = checking changes made in the codebase do not impact the existing software functionality.
+
+
 
 
 ```
