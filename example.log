@@ -35,3 +35,19 @@ INFO:root:So should this
 WARNING:root:And this, too 3
 ERROR:root:And non-ASCII stuff, too, like Øresund and Malmö
 INFO:numexpr.utils:NumExpr defaulting to 8 threads.
+INFO:root:msg log of item 1
+INFO:root:msg log of item 2
+INFO:root:msg log of item 3
+INFO:root:msg log of item 1
+INFO:root:msg log of item 2
+INFO:root:msg log of item 3
+INFO:root:msg log of item 1
+INFO:root:msg log of item 2
+INFO:root:msg log of item 3
+INFO:root:msg log of item 1
+INFO:root:msg log of item 2
+INFO:root:msg log of item 3
+INFO:root:So should this time: [0.5118708330010122, 0.48118337500091, 0.480237167001178, 0.4802627909994044, 0.48089112500019837]
+INFO:root:So should this time: [0.4908272080010647, 0.4751695420000033]
+INFO:root:So should this time: [3.916000423487276e-06, 1.6670001059537753e-06]
+INFO:root:So should this time: [1.2919990695081651e-06, 3.330005711177364e-07]

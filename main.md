@@ -2352,16 +2352,231 @@ Or have a worker which writes all the log messages, and the other workers send t
 - make two queues: one which specifies tasks for workers; other which specifies logs to write
 - create worker process which listens for queue on while loop, and writes messages to logs
 - create worker processes which listen for queue to do work tasks, then send messages to log queue
+All this is done in the below:
+```
+import multiprocessing as mp
+import logging
+import os
+import time
+
+def logger_process(queue): 
+    # setup
+    logfilepath=filename=os.getcwd()+'/example.log'
+    logging.basicConfig(filename=logfilepath, encoding='utf-8', level=logging.DEBUG)
+    print('logger worker ready')
+    
+    # Loop indefinitely
+    while True:
+        # Get the next item from the queue
+        msg = queue.get()
+        print(f'msg: {msg}')
+        
+        if msg == 'CLOSE':
+            break
+        else:
+            print(f'logging: {msg}')
+            logging.info(msg)
+     
+def task_process(queue, logging_queue): 
+
+    # Loop indefinitely
+    while True:
+        # Get the next item from the queue
+        msg = queue.get()
+        if msg == 'CLOSE':
+            break
+        else:
+            print(f'do something with msg {msg}')
+            logging_queue.put(f'msg log of {msg}')
+
+def main():
+    # Create queues
+    logging_queue = mp.Queue()
+    tasks_queue = mp.Queue()
+
+    # Create a logger process
+    logger_worker_process = mp.Process(target=logger_process, args=(logging_queue,))
+    logger_worker_process.start()
+
+    # Create process for main tasks
+    task_worker_process = mp.Process(target=task_process, args=(tasks_queue,logging_queue, ))
+    task_worker_process.start()
+
+    # send some tasks to main tasks
+    # Put some items in the queue
+    tasks_queue.put("item 1")
+    tasks_queue.put("item 2")
+    tasks_queue.put("item 3")
+
+    tasks_queue.put("CLOSE")
+    time.sleep(1)
+    logging_queue.put("CLOSE")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+
+
+## socketserver
+
+The socketserver module simplifies the task of writing network servers
+
+In class below, ThreadingMixIn class comes first, since it overrides a method defined in UDPServer
+```
+class ThreadingUDPServer(ThreadingMixIn, UDPServer):
+    pass
+```
+
+
+
+## Making a load balancer in python
+
+Ideas:
+- use multiprocessing to create new workers in response to new requests
+- make cache to store most recent
+- forward to another page
+- return something to user
+
+This prints things to console when user goes to URL, but doesn't return anything to them.
+```
+import socketserver
+import threading
+
+class LoadBalancer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    # Override the process_request method to distribute incoming requests to a pool of worker threads
+    def process_request(self, request, client_address):
+        print('hi')
+        print(f'request: {request}')
+        print(f'client_address: {client_address}')
+        return 'hahaha'
+        """
+        # Create a new worker thread to handle the request
+        t = threading.Thread(target=self.process_request_thread, args=(request, client_address))
+        # Start the worker thread
+        t.start()
+        """
+if __name__ == "__main__":
+    # Create a load balancer server
+    server = LoadBalancer(("0.0.0.0", 8080), socketserver.BaseRequestHandler)
+    # Start the server
+    server.serve_forever()
+
+```
+
+
+## logging with timeit
+
+timeit.repeat() is the func
+
+```
+import logging
+import os
+import timeit
+logfilepath=filename=os.getcwd()+'/example.log'
+logging.basicConfig(filename=logfilepath, encoding='utf-8', level=logging.DEBUG)
+timed = timeit.repeat("8*8", repeat=2, number=1)   # number = number of times func will be called
+logging.info(f'So should this time: {timed}')
+```
+
+
+
+## Get GPU and CPU usage each second
+
+Could log this
+
+```
+import subprocess
+import psutil
+import time
+from datetime import datetime
+
+# Function to get GPU usage
+def get_gpu_usage():
+    # Run the "nvidia-smi" command and get the output
+    output = subprocess.run(["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader"], capture_output=True)
+    # Split the output into lines
+    lines = output.stdout.decode("utf-8").strip().split("\n")
+    # Parse the GPU usage from the output
+    usage = [int(line.strip().split(",")[0]) for line in lines]
+    return usage
+
+# Function to get CPU usage
+def get_cpu_usage():
+    # Get the CPU usage using the "psutil" module
+    usage = psutil.cpu_percent()
+    return usage
+
+# Main loop
+current_second = datetime.now().second
+while True:
+    # Get the GPU and CPU usage
+    gpu_usage = get_gpu_usage()
+    cpu_usage = get_cpu_usage()
+
+    # Print the usage information
+    print(datetime.now().strftime('%d/%m/%y %S/%M/%H'))
+    print("GPU usage: {}%".format(gpu_usage))
+    print("CPU usage: {}%".format(cpu_usage))
+
+    # Sleep until next second
+    while current_second == datetime.now().second:
+        time.sleep(0.001)          # better to sleep for frac of second than pass: less CPU intensive
+    current_second = datetime.now().second
+```
+
+
+## pynccl
+
+Same concepts as MPI
+
+```
+pynccl.init_rank()   #makes a 'communicator' object 
+
+
+nk = pynccl.NcclWrp(kn, rank, gpu_i)     # this seems to be the main pynccl object
+
+
+nk.get_nuid()   
+
+
+nk.set_nuid()
+
+
+nk.init_comm()
+
+
+nk.stream_sync()
+
+
+nk.do_all_gather()
+
+
+nk.abort_comm()
+
+```
+
+In an all_gather operation, each process sends a piece of data to all other processes, and all processes receive data from all other processes. So all processes get all the results (I think).
 
 
 
 
+## How does Reinforcement Learning with Human Feedback (RLHF) apply to transformers?
 
+Unfinished notes from this article: https://huggingface.co/blog/rlhf
 
+Human augmented text = 
 
+The training dataset of prompt-generation pairs for the RM is generated by sampling a set of prompts from a predefined dataset
 
+Human annotators are used to rank the generated text outputs from the LM
 
+There are multiple methods for ranking the text. One method that has been successful is to have users compare generated text from two language models conditioned on the same prompt. The comparison is often done with an Elo rating system.
 
+Elo rating system is a method for calculating the relative skill levels of players in zero-sum games such as chess. 
+
+Method: fine-tuning some or all of the parameters of a copy of the initial LM with a policy-gradient RL algorithm, Proximal Policy Optimization
 
 
 
