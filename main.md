@@ -2292,6 +2292,79 @@ typing also lets you make NewType for custom type to hint at
 
 
 
+## python development mode
+
+The Python Development Mode introduces additional runtime checks that are too expensive to be enabled by default.
+
+Dev mode is more verbose only with warnings: if everything is perfect the printout should look the same.
+
+To run asynciotest.py in dev mode:
+```
+python3 -X dev asynciotest.py
+```
+
+What does dev mode do? 
+- Will tell you where you don't explicitly close a file (if not using a context manager)
+- Other things no doubt...
+
+
+
+
+## Text embeddings in pytorch
+
+nn.Embedding layer takes as input a list of integer indices, and returns the corresponding embeddings for these indices as output.
+
+nn.Embedding layer in PyTorch is trainable. This means that the embedding vectors that the nn.Embedding layer maps the input indices to can be modified during training by gradient descent.
+
+Example:
+```
+import torch
+import torch.nn as nn
+
+# Define the embedding layer
+embedding_layer = nn.Embedding(num_embeddings=1000, embedding_dim=128)
+
+# Define some input text
+text = ["This is some text <END>", "Here is another sentence boom!"]
+
+# Create a vocabulary dict of word to integers
+vocab = {}
+vocab.update({word: index for index, word in enumerate(sorted(set([word for sentence in text for word in sentence.split()])))})
+
+# Convert the text to a tensor
+text_tensor = torch.tensor([[vocab[word] for word in sentence.split()] for sentence in text])
+
+# Pass the text tensor through the embedding layer
+embeddings = embedding_layer(text_tensor)
+
+print(f'embeddings shape: {embeddings.shape}')
+print(f'text_tensor shape: {text_tensor.shape}')
+print(embeddings)
+```
+
+
+
+## Writing to distributed log files
+
+May be best to write to a separate log file for each process to avoid race conditions. 
+
+Or have a worker which writes all the log messages, and the other workers send to that via a queue. To do this would want to:
+- make two queues: one which specifies tasks for workers; other which specifies logs to write
+- create worker process which listens for queue on while loop, and writes messages to logs
+- create worker processes which listen for queue to do work tasks, then send messages to log queue
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
