@@ -2576,7 +2576,98 @@ There are multiple methods for ranking the text. One method that has been succes
 
 Elo rating system is a method for calculating the relative skill levels of players in zero-sum games such as chess. 
 
-Method: fine-tuning some or all of the parameters of a copy of the initial LM with a policy-gradient RL algorithm, Proximal Policy Optimization
+Method: fine-tuning some or all of the parameters of a copy of the initial LM with a policy-gradient RL algorithm, Proximal Policy Optimization (PPO)
+
+many of the core RL advancements to do RLHF have been figuring out how to update such a large model with a familiar algorithm (PPO)
+
+Training includes a divergence term penalizes the RL policy from moving substantially away from the initial pretrained model with each training batch, which can be useful to make sure the model outputs reasonably coherent text snippets.
+
+Maximises reward metrics of reward (as judged by human labelling) minus KL divergence
+
+
+
+
+## make pytorch dataloader with multiple workers
+
+```
+import torch
+import torch.utils.data
+
+# Define a PyTorch dataset
+class MyDataset(torch.utils.data.Dataset):
+    def __init__(self):
+        # Load data
+        self.data = torch.randn(20, 10)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+def main():
+    # Create the dataset
+    dataset = MyDataset()
+
+    # Define a PyTorch dataloader
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=10,
+        shuffle=True,
+        num_workers=4  # Use 4 worker processes
+    )
+
+    # Iterate over the dataloader
+    for batch in dataloader:
+        print(batch)
+
+if __name__ == "__main__":
+    main()
+```
+
+
+
+## jax
+
+All jax objects are immutable
+
+
+
+
+
+
+## AWS networking
+
+firewall = network security system that controls incoming and outgoing network traffic based on predetermined security rules. Can include IP address, protocol used, port number
+
+virtual private cloud (VPC) = virtual network dedicated to your AWS account used by resources
+
+subnet = Each VPC network consists of one or more IP address range called subnets. Subnets are regional resources, and have IP address ranges associated with them.
+
+group = A group is a collection of entities, where each entity can be either another group or a user
+
+security group = specifically for controlling access to organizational resources. Collection of rules applied to 1+ users
+
+access control list = mechanism you can use to define who has access to your buckets and objects, as well as what level of access they have.
+
+Customer Gateways = A customer gateway connects your on-premises data center to a virtual private cloud (VPC). A VPN connection uses the Internet to connect your on-premises data center to a VPC. A Direct Connect connection uses a dedicated network connection to connect your on-premises data center to a VPC.
+
+Virtual Private Gateways = logical representation of a VPN
+
+
+
+
+## How does a Virtual Private Network (VPN) work?
+
+The VPN server authenticates the client
+
+The VPN server and the client establish a secure connection using a VPN protoco
+
+Once the secure connection is established, the client can access the resources on the private network as if it were connected directly to the private network.
+
+VPN can forward data to other servers in private network
+
+
 
 
 
