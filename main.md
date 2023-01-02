@@ -2523,6 +2523,7 @@ if __name__ == "__main__":
 
 
 
+
 ## logging with timeit
 
 timeit.repeat() is the func
@@ -2728,6 +2729,575 @@ VPN can forward data to other servers in private network
 
 
 
+## Generators
+```
+# this is a generator
+def gen_nums(): 
+    n=0
+    while n < 4: 
+        yield n
+        n += 1
+
+for i in gen_nums():
+    print(i)
+```
+
+
+
+## TDD
+
+Test driven development. Notes from chapter of Powerful Python
+
+Says TDD is a mindset that you get into, and it makes it easier to write code in a state of flow: write the test for it, then the code, then repeat. 
+
+Author: "TDD helps me get into an cognitive state that seems accelerated, so that I can more easily maintain my mental focus, and produce quality code faster."
+
+Example of test of new class:
+```
+# run with: python3 -m unittest unit_test.py
+import unittest
+
+class Angle():
+    def __init__(self, angle):
+        self.degrees = angle
+        
+    def __repr__(self):
+        return str(self.degrees) + ' degrees'
+
+class TestAngle(unittest.TestCase): 
+    def test_degrees(self):
+        small_angle = Angle(60)
+        self.assertEqual(60, small_angle.degrees)
+```
+
+Perhaps unit testing is best for seeing how your widget behaves generally. It won't tell you if you're getting results which look about right but aren't perfect. 
+
+The setup() and teardown() methods you create for your testing class can be complicated (eg: making a new folder structure) 
+
+
+
+## Decorators from classes
+
+```
+# making a decorator from a class
+class PrintLog:
+    def __init__(self, func):
+        self.func = func
+    def __call__(self, *args, **kwargs):
+        print('CALLING: {}'.format(self.func.__name__)) 
+        return self.func(*args, **kwargs)
+
+@PrintLog
+def nf(strr):
+    print(strr)
+nf('hi')
+```
+Our own decorator classes can inherit from other decorator classes:
+```
+import sys
+class ResultAnnouncer:
+    stream = sys.stdout 
+    prefix = "RESULT"
+    def __init__(self, func):
+        self.func = func
+    def __call__(self, *args, **kwargs):
+        value = self.func(*args, **kwargs)
+        self.stream.write('{}: {}\n'.format(self.prefix,value))
+        return value
+
+class StdErrResultAnnouncer(ResultAnnouncer): 
+    stream = sys.stderr
+    prefix = "ERROR QS"
+    
+@StdErrResultAnnouncer
+def pt():
+    print('po')
+pt()
+```
+
+Not a decorator but storing info in an object 
+```
+class CountCalls:
+    def __init__(self, func):
+        self.func = func
+        self.count = 1
+    def __call__(self, *args, **kwargs):
+        print('# of calls: {}'.format(self.count)) 
+        self.count += 1
+        return self.func(*args, **kwargs)
+
+caller = CountCalls(print)
+for i in range(3):
+    caller('aaa')
+```
+
+Can also make decorators to apply to classes: this one automatically adds the '__repr__' method to show the class name and it's value
+```
+# here 'klass' is the name of the class being decorated
+def autorepr(klass):
+    def klass_repr(self):
+        return '{}, {}'.format(klass.__name__ + ' instance', self.value)
+    klass.__repr__ = klass_repr
+    return klass
+
+@autorepr
+class Penny():
+    def __init__(self, value):
+        self.value = value
+
+print(Penny(3))
+```
+
+Says the worst ever python antipattern is using try/except without a specific exception to catch, as per:
+```
+try: 
+	(do something)
+except: 
+	pass
+```
+
+@property in a class is somewhat like a method which is pretending to be a property of the class
+```
+class Person:
+    def __init__(self, firstname, lastname):
+        self.firstname = firstname
+        self.lastname = lastname
+
+    @property
+    def fullname(self):
+        return self.firstname + " " + self.lastname
+    
+Person('john', 'smith').fullname
+#Person('john', 'smith').fullname()  # would be this without property decorator
+
+```
+
+
+## NeoX
+
+Chunks of code from NeoX
+```
+# @distributed_test to distribute testing
+from torch.testing import distributed_test
+```
+
+Making a dataclass to store key/values
+```
+from dataclasses import dataclass
+@dataclass
+class NeoXArgsDeepspeedConfig():
+    deepspeed: bool = True
+    train_batch_size: int = None
+```
+
+
+## Leetcode
+
+Main take home from doing leetcode: 
+- lots of little mistakes like typos or using wrong names for things will get me in trouble
+- watch out for taking modulus of zero
+- generally thinking I've got it working when I haven't
+
+Pivot index = index where the sum of all the numbers strictly to the left of the index is equal to the sum of all the numbers strictly to the index's right. The below finds the pivot index:
+```
+# this finds the overall sum, then looks for the point which is halfways between that
+class Solution(object):
+    def pivotIndex(self, nums):
+        S = sum(nums)
+        leftsum = 0
+        for i, x in enumerate(nums):
+            if leftsum == (S - leftsum - x):
+                return i
+            leftsum += x
+        return -1
+```
+
+The below makes a calendar which checks for double bookings:
+```
+class MyCalendar:
+
+    def __init__(self):
+        self.bookings = []
+
+    def book(self, start: int, end: int) -> bool:
+
+        # check for double booking
+        def is_overlap(start, end, old_start, old_end):
+            if start < old_end and end > old_start:
+                return 1
+            else:
+                return 0
+
+        counter = 0
+        for booking in self.bookings:
+            counter += is_overlap(start, end, booking['start'], booking['end'])
+
+        if counter == 0:
+            self.bookings.append({'start':start, 'end':end})
+            return True
+
+        return False 
+```
+
+The below tells you if two strings are isomorphic:
+```
+def isIsomorphic(s: str, t: str) -> bool:
+
+    letter_map = {}
+    for i in range(len(s)):
+        if s[i] in letter_map.keys():
+            print(letter_map[s[i]])
+            if letter_map[s[i]] != t[i]:
+                return False
+            
+        if t[i] in letter_map.values():
+            try:
+                if letter_map[s[i]] != t[i]:
+                    return False
+            except KeyError:
+                return False
+
+        letter_map[s[i]] = t[i]
+
+    new_word = ''
+    for letter in s:
+        new_word += letter_map[letter]
+
+    return new_word == t
+isIsomorphic('badc', 'baeg')
+```
+
+Inelegant solution to reverse order of linked list:
+```
+class Solution:
+    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:
+        l = []
+
+        if head is None:
+            return None
+        
+        print(head)
+        while head is not None:
+            l.append(head.val)
+            head = head.next
+        
+        # reverse the list
+        ln = ListNode(val=l[0],next=None)
+        for val in l[1:]:
+            ln = ListNode(val = val, next = ln)
+        print(ln)
+
+        return ln
+```
+To check if a graph is acyclic.
+
+Make adjacency matrix: connections for each node
+    
+Then use depth first search: start from each node which doesn't have dependenices and see if everywhere can be visited.
+
+
+
+Tells you if a sequence is monotonic:
+```
+class Solution:
+    def isMonotonic(self, nums: List[int]) -> bool:
+        if len(nums) == 1:
+            return True
+        
+        i = 0
+        is_decreasing = nums[i+1] < nums[i]
+        same = nums[i+1] == nums[i]
+        while same:
+            if i == len(nums) - 1:
+                return True
+            
+            is_decreasing = nums[i+1] < nums[i]
+            same = nums[i+1] == nums[i]
+            i += 1
+
+        if is_decreasing:
+            for i in range(1, len(nums)):
+                if nums[i] > nums[i-1]:
+                    return False
+
+        if not is_decreasing:
+            for i in range(1, len(nums)):
+                if nums[i] < nums[i-1]:
+                    return False
+
+        return True
+```
+
+Find first position of string in larger string
+```
+S = 'hahaha' # Source String 
+k = 'a' # String to be searched
+import re
+pattern = re.compile(k)
+r = pattern.search(S)
+r.start()
+```
+
+Method to do something to class on hash() 
+```
+class ha():
+    v = 3
+    def __hash__(self):
+        return self.v
+    
+hash(ha())
+```
+
+To completely override sys.path create a ._pth file. In the ._pth file specify one line for each path to add to sys.path
+```
+import sys
+sys.path
+```
+
+
+## Importlib
+
+To import from file system, zip archives, and other locations such as databases. The below loads a package from a database:
+```
+import importlib.abc
+import importlib.util
+
+class DatabaseModuleLoader(importlib.abc.Loader):
+    def create_module(self, spec):
+        # Retrieve the module code from the database
+        code = retrieve_module_code_from_database(spec.name)
+        # Create a new module object
+        module = types.ModuleType(spec.name)
+        # Execute the module code in the context of the module object
+        exec(code, module.__dict__)
+        # Return the module object
+        return module
+    
+    def exec_module(self, module):
+        # No need to execute the code again, as it was already executed in create_module()
+        pass
+    
+    def is_package(self, fullname):
+        # Check if the module is a package by querying the database
+        return is_package_in_database(fullname)
+    
+    def get_code(self, fullname):
+        # Retrieve the module code from the database
+        return retrieve_module_code_from_database(fullname)
+    
+    def get_source(self, fullname):
+        # Retrieve the module source code from the database
+        return retrieve_module_source_from_database(fullname)
+
+# Create a module spec for the module to be loaded
+spec = importlib.util.spec_from_loader('my_module', DatabaseModuleLoader())
+# Use the module spec to load the module
+module = importlib.util.module_from_spec(spec)
+# Execute the module's code in the context of the module object
+spec.loader.exec_module(module)
+```
+
+
+## ipaddress
+
+```
+import ipaddress
+
+# returns an ipaddress object
+addr = ipaddress.ip_address('192.168.0.1')
+
+# can also make networks, and explode or compress the IP address
+```
+A network definition consists of a mask and a network address
+
+IP network masks: "A prefix /<nbits> is a notation that denotes how many high-order bits are set in the network mask. A net mask is an IP address with some number of high-order bits set."
+
+The below shows you all available IP addresses in the network given the size of the net mask
+```
+list(ipaddress.ip_network('192.0.2.0/29').hosts())  
+
+list(ipaddress.ip_network('192.0.2.0/23').hosts())  
+```
+Host mask is the logical opposite of the network mask, eg: 255.255.255.0 (network) becomes 0.0.0.255 (host)
+
+
+
+
+## breakpoint
+
+breakpoint() in script will pause it for debug in terminal. type 'next' to continue execution
+
+```
+print(222)
+breakpoint()
+print(111)
+```
+
+
+
+## faulthandler
+
+The below prints the traceback to STDERR (ie, the console)
+```
+import faulthandler
+
+def some_function():
+    # some code here
+    try:
+        # code that may raise an exception
+        1 / 0  # this will raise a ZeroDivisionError
+    except Exception as e:
+        # print the traceback of the current thread
+        faulthandler.dump_traceback(e)
+
+some_function()
+```
+Use faulthandler.register() to dump traceback on reception of a signal
+
+
+
+
+## trace
+
+The below runs fault_handler.py with extra tracing:  
+```
+python -m trace --count -C . --report --file f.txt fault_handler.py
+```
+
+Using tracer.run() on main() below will get you more debug info on error than default
+```
+import sys
+import trace
+
+# create a Trace object, telling it what to ignore, and whether to
+# do tracing or line-counting or both.
+tracer = trace.Trace(
+    ignoredirs=[sys.prefix, sys.exec_prefix],
+    trace=0,
+    count=1)
+
+def main():
+    1 / 0
+    return 1
+
+# run the new command using the given tracer
+tracer.run('main()')
+#main()
+
+# make a report, placing output in the current directory
+r = tracer.results()
+r.write_results(show_missing=True, coverdir=".")
+```
+
+
+
+## tracemalloc
+
+The tracemalloc.take_snapshot() function in Python is used to take a snapshot of the current state of the memory allocator. This snapshot can be used to later analyze the memory usage of a program and identify potential memory leaks.
+
+
+
+
+## pyflakes
+
+Static analyser of code: looks for any syntax errors or undefined variables
+
+To run it on a script:
+```
+pyflakes forflakes.py
+```
+
+
+## pylink
+
+Does more than pyflakes: checks for syntax errors and styles
+
+To run:
+```
+pylint forflakes.py
+```
+
+
+## pycodestyle
+
+Checks for formatting only, not what the code actually does
+
+To run:
+```
+pycodestyle forflakes.py
+```
+
+
+## bandit
+
+Finds common security issues in Python code
+
+To run:
+```
+bandit forflakes.py
+```
+
+Builds an Abstract Syntax Tree (AST) from code files and runs appropriate plugins against the AST nodes. Once Bandit has finished scanning all the files, it generates a report.
+
+
+
+
+## inspect
+
+```
+inspect.signature(func_name)    for viewing signature (aka input arguments and their types) of a function
+
+# has various functions for telling you things about an object or function, eg:
+inspect.isawaitable(obj_name)
+```
+
+
+
+## sys for auditing events
+
+The below triggers and handles an audit event. The audit_handler() is a callback triggered by the audit event
+```
+import sys
+
+def audit_handler(event, args):
+  print(f'Audit event triggered: {event}')
+  print(f'Event arguments: {args}')
+
+# Set the audit hook function
+sys.addaudithook(audit_handler)
+
+# Trigger an audit event
+sys.audit('example_event', {'arg1': 'value1', 'arg2': 'value2'})
+```
+
+
+
+## cProfile and pstats
+
+pstats is a way to extract info needed from cProfile findings
+
+```
+import cProfile
+import pstats
+
+def my_function():
+    1*2
+    print('hi')
+
+# Run the code being profiled using cProfile, storing result in obj 'profiling_results'
+cProfile.run("my_function()", "profiling_results")
+
+# Load the profiling results into a pstats.Stats object
+stats = pstats.Stats("profiling_results")
+
+# Use the pstats.Stats object to analyze the profiling results
+stats.strip_dirs()
+stats.sort_stats("time")
+stats.print_stats(20)
+```
+
+
+
 
 
 
@@ -2743,6 +3313,16 @@ concurrent read/write access to objects vs multiple simultaneous read accesses
 
 differnce between registering and inheriting in python?
 
+
+
+
+```
+## To view source code for a module or function
+import inspect
+import io
+from pprint import pprint
+pprint(inspect.getsource(io))
+```
 
 
 
@@ -2767,16 +3347,17 @@ Test discovery = process of finding and running test cases in a test suite.
 
 regression test = checking changes made in the codebase do not impact the existing software functionality.
 
+primitive calls = calls not induced via recursion
+
+audit event = specific type of system event, such as a function call or attribute access, that is generated by the Python interpreter.
 
 
 
-```
-## To view source code for a module or function
-import inspect
-import io
-from pprint import pprint
-pprint(inspect.getsource(io))
-```
+# References 
+
+[Exception hierarchy for reference](https://docs.python.org/3/library/exceptions.html#exception-hierarchy)
+
+
 
 
 
