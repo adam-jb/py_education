@@ -3539,24 +3539,26 @@ pip3 install mpi4py
 ```
 
 
-## MPI and kubernetes
+## Things and kubernetes
 
-There is a MPI Operator for Kubernetes. Can pass messages between nodes in a cluster
+MPI: There is a MPI Operator for Kubernetes. Can pass messages between nodes in a cluster
 
+Deepspeed: there is a DeepSpeed Kubernetes operator
 
+Megatron: install megatron on the cluster nodes (perhaps within containers); each pod would run a copy of the Megatron training script, and the training process would be coordinated by the Kubernetes API.
 
+PyTorch: You can use the PyTorch DataParallel class to distribute the training across multiple GPUs or nodes in the cluster.
+<br><br>
+Q: what is a kubernetes operator?
 
-
+A: extends the Kubernetes API to create, configure, and manage custom resources
 
 
 
 
 ## Exceptions
 
-OverflowError = value too large to hold in memory
-
-
-
+[Great reference for exceptions](https://www.w3schools.com/python/python_ref_exceptions.asp)
 
 
 
