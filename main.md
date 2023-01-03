@@ -2034,15 +2034,34 @@ asyncio.get_event_loop()
 asyncio.set_event_loop()
 asyncio.new_event_loop()
 
-
-
-
-
-
-
-
 ```
 
+
+
+## aiohttp
+
+The below sends 1000 async requests using aiohttp.ClientSession() and async
+```
+import asyncio
+import aiohttp
+from time import time
+
+async def fetch(session, url):
+    async with session.get(url) as response:
+        return await response.text()
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        # Create a list of tasks to run concurrently
+        tasks = [fetch(session, f'http://google.com') for i in range(1000)]
+        # Use asyncio.gather to run the tasks concurrently
+        results = await asyncio.gather(*tasks)
+        return results
+
+t1 = time()
+res = await main()
+time() - t1
+```
 
 
 
@@ -2894,6 +2913,7 @@ class NeoXArgsDeepspeedConfig():
 ## Leetcode
 
 Main take home from doing leetcode: 
+- read the question!
 - lots of little mistakes like typos or using wrong names for things will get me in trouble
 - watch out for taking modulus of zero
 - generally thinking I've got it working when I haven't
@@ -3028,6 +3048,122 @@ class Solution:
         return True
 ```
 
+See if a soduku starting board is valid:
+```
+class Solution:
+    def isValidSudoku(self, board: List[List[str]]) -> bool:
+
+        def check_dupes(row: List[str]):
+            testset = set()
+            for val in row:
+                if val in testset:
+                    return True
+                if val != '.':
+                    testset.add(val)
+
+        # test rows
+        for row in board:
+            if check_dupes(row):
+                return False
+
+        # test cols
+        for i in range(len(board)):
+            column = [row[i] for row in board]
+            if check_dupes(column):
+                return False
+
+        # test squares
+        import numpy as np
+        npb = np.asarray(board)
+        for i in range(int(len(board) / 3)):
+            for j in range(int(len(board) / 3)):
+                imin = i * 3
+                imax = (i+1) * 3
+                jmin = j * 3
+                jmax = (j+1) * 3
+                flat_square = np.reshape(npb[imin:imax,jmin:jmax], -1).tolist()
+                print(flat_square)
+                if check_dupes(flat_square):
+                    return False
+
+        return True
+```
+
+Find all combinations of 'candidates' which sum to target
+```
+class Solution:
+    def combinationSum2(self, candidates: List[int], target: int) -> List[List[int]]:   
+        import itertools as it
+        combos = []
+        for i in range(1,len(candidates)+1):
+            for k in it.combinations(candidates,i):
+                if sum(k) == target:
+                    combos.append(k)
+        outset = set()
+        for c in combos:
+            outset.add(c)
+        vals = [list(o) for o in outset]
+        fv = []
+        for v in vals:
+            if sorted(v) not in fv:
+                fv.append(sorted(v))
+        return fv
+```
+Get all possible permutations for a list
+```
+class Solution:
+    def permuteUnique(self, nums: List[int]) -> List[List[int]]:
+        import itertools as it
+        ls = []
+        for k in it.permutations(nums):
+            if k not in ls:
+                ls.append(k)
+        return ls
+```
+
+Group words which are anagrams of each other
+```
+class Solution:
+    def groupAnagrams(self, strs: List[str]) -> List[List[str]]:
+        anas = {}
+        for word in strs:
+            ws = ''.join(sorted(word))
+            try:
+                anas[ws].append(word)
+            except KeyError:
+                anas[ws] = [word]
+        return [l for l in anas.values()]
+```
+Get X to the power of something:
+```
+class Solution:
+    def myPow(self, x: float, n: int) -> float:
+        og_x = x
+        if n == 0:
+            return 1
+        if n < 0:
+            x = 1
+            for i in range(-n):
+                x /= og_x
+        if n > 0:
+            for i in range(n - 1):
+                x *= og_x
+        return x
+```
+
+Find largest contiguous subarray
+```
+class Solution:
+    def maxSubArray(self, nums: List[int]) -> int:
+        alls = [nums[i:i+j] for i in range(0,len(nums)) for j in range(1,len(nums)-i+1)]
+        maxi = -99999
+        for i,v in enumerate(alls):
+            if sum(v) > maxi:
+                maxi = sum(v)
+        return maxi
+```
+
+
 Find first position of string in larger string
 ```
 S = 'hahaha' # Source String 
@@ -3053,6 +3189,369 @@ To completely override sys.path create a ._pth file. In the ._pth file specify o
 import sys
 sys.path
 ```
+
+
+## Multiprocessing tasks
+
+Write a Python function that processes a large dataset in parallel using the Pool.map method.
+```
+import multiprocessing as mp
+import numpy as np
+
+def sumit(x):
+    return np.sum(x)
+
+def main():
+    store = []
+    bigarr = np.random.rand(10,20)
+    sb = np.split(bigarr, 10)
+    with mp.Pool() as p:
+        for result in p.starmap(sumit, sb):
+            store.append(result)
+            
+    return store
+
+if __name__ == '__main__':
+    main()
+```
+Write a Python function that uses the Queue class to communicate between processes.
+```
+import multiprocessing as mp
+import numpy as np
+
+def sumit(q):
+    while True:
+        x = q.get()
+        print(x)
+        if x == 'CLOSE':
+            break
+    return 0
+
+def main():
+    
+    q = mp.Queue()
+    workers = [mp.Process(target=sumit, args=(q,)) for i in range(2)]
+    for w in workers:
+        w.start()
+        
+    # submit job to queue
+    for i in range(6):
+        q.put(i)
+        
+    # close workers
+    for i in range(2):
+        q.put('CLOSE')
+    
+    # block all processing till workers terminate
+    for w in workers:
+        w.join()
+    
+    return 0
+
+
+if __name__ == '__main__':
+    main()
+```
+Write a Python function that uses the Lock class to synchronize access to a shared resource.
+```
+import multiprocessing as mp
+from time import time, sleep
+
+def withdraw(balance, lock):
+    for i in range(100):
+        sleep(0.01)
+        lock.acquire()
+        balance.value -= 0.1
+        lock.release()
+        
+def deposit(balance, lock):
+    for i in range(100):
+        sleep(0.01)
+        lock.acquire()
+        balance.value += 0.2
+        lock.release()
+    
+def main():
+    
+    # make value of type 'd' (double) which can be shared across processes
+    balance = mp.Value('d', 200)   
+    lock = mp.Lock()
+    p1 = mp.Process(target=deposit, args=(balance, lock,))
+    p2 = mp.Process(target=withdraw, args=(balance, lock,))
+    p1.start()
+    p2.start()
+    p1.join()
+    p2.join()
+    print(balance.value)
+    
+    return 0
+
+
+if __name__ == '__main__':
+    main()
+
+```
+Write a Python function that uses the Event class to signal between processes.
+```
+import multiprocessing as mp
+
+def setEvent(event):
+    event.set()
+    print('event set my setter')
+    
+def getEvent(event):
+    print('listening for event')
+    while True:
+        if event.is_set():
+            print('event is now set')
+            break
+    
+def main():
+    
+    event = mp.Event()
+    event.clear()
+    
+    p1 = mp.Process(target=setEvent, args=(event,))
+    p2 = mp.Process(target=getEvent, args=(event,))
+    p1.start()
+    p2.start()
+    p1.join()
+    p2.join()
+    print('done')
+    
+    return 0
+
+
+if __name__ == '__main__':
+    main()
+
+```
+Write a Python function that uses the Semaphore class to control access to a shared resource.
+```
+import multiprocessing as mp
+from time import sleep
+
+def dothing(semaphore, i):
+    semaphore.acquire()
+    sleep(1)
+    semaphore.release()
+    print(f'thing {i} is done')
+    
+    
+def main():
+    
+    # semaphore limits the number of threads that can acquire a lock protecting a critical section.
+    semaphore = mp.Semaphore(2)
+    
+    procs = [mp.Process(target=dothing, args=(semaphore,i,)) for i in range(4)]
+    for proc in procs:
+        proc.start()
+        
+    for proc in procs:
+        proc.join()
+
+    print('done')
+    return 0
+
+
+if __name__ == '__main__':
+    main()
+
+```
+Write a Python function that uses the Condition class to synchronize access to a shared resource.
+```
+import multiprocessing as mp
+from time import sleep
+
+def dothing(condition, i):
+    
+    # context manager is equivalent to using acquire() and release()
+    # while condition is acquired nothing else can acquire it, much like a lock
+    with condition:
+        sleep(1) 
+        print(f'thing {i} is done')
+        condition.notify_all()
+    
+    
+def main():
+    
+    # a condition (also called a monitor) allows multiple processes (or threads) to be notified about some result
+    condition = mp.Condition()
+    
+    procs = [mp.Process(target=dothing, args=(condition,i,)) for i in range(4)]
+    for i, proc in enumerate(procs):
+        proc.start()
+        print(f'{i} done')
+        
+    for proc in procs:
+        proc.join()
+
+    print('done')
+    return 0
+
+
+if __name__ == '__main__':
+    main()
+```
+Write a Python function that uses the Barrier class to synchronize the start of a task across multiple processes.
+```
+import multiprocessing as mp
+from time import sleep
+import numpy as np
+
+def dothing(barrier):
+    t= np.random.rand(1)[0]
+    sleep(t)
+    print(t)
+    barrier.wait()
+    
+    
+def main():
+    
+    n_workers = 4
+    
+    # set N parties = 5: one for each worker, plus one for main process which waits for the workers
+    barrier = mp.Barrier(n_workers + 1)
+    
+    procs = [mp.Process(target=dothing, args=(barrier,)) for i in range(n_workers)]
+    for i, proc in enumerate(procs):
+        proc.start()
+        print(f'{i} started')
+
+    print('Main process waiting on all results...')
+    barrier.wait()
+    
+    # including join() doesnt matter in case of barrier 
+    """
+    for proc in procs:
+        proc.join()
+    """
+    
+    print('done')
+    return 0
+
+
+if __name__ == '__main__':
+    main()
+```
+Write a Python function that uses the Queue class and the Pool.apply_async method to parallelize a task across multiple processes.
+```
+import multiprocessing as mp
+from time import sleep
+import numpy as np
+
+def worker(q):
+    g = q.get()
+    print(g)
+    return 0
+    
+    
+if __name__ == '__main__':
+    pool = mp.Pool()
+    m = mp.Manager()
+    q = m.Queue()
+    for name in range(20):
+        q.put(f"msg {name}")
+        
+    # important to add a comma after 'q' input, or it is interpreted as a list of single characters, or wrong in some other way
+    for i in range(3):
+        pool.apply_async(worker, (q,))
+        
+    pool.close()
+    pool.join()
+
+```
+Write a Python function that uses the Queue class and the Process class to implement a producer-consumer pattern.
+```
+import multiprocessing as mp
+import numpy as np
+
+def sumit(producer_q, consumer_q):
+    while True:
+        x = producer_q.get()
+        if x == 'CLOSE':
+            break
+        consumer_q.put(int(x) * 2)
+        print(x)
+        
+    return 0
+
+def main():
+    
+    producer_q = mp.Queue()
+    consumer_q = mp.Queue()
+        
+    workers = [mp.Process(target=sumit, args=(producer_q,consumer_q,)) for i in range(2)]
+    for w in workers:
+        w.start()
+        
+    # submit job to queue
+    for i in range(6):
+        producer_q.put(i)
+    
+    # close workers
+    for i in range(2):
+        producer_q.put('CLOSE')
+        
+    # consume all processed info
+    vals = []
+    for i in range(6):
+        val = consumer_q.get()
+        vals.append(val)
+    
+    # block all processing till workers terminate
+    for w in workers:
+        w.join()
+        
+    print(f'vals: {vals}')
+    
+    return 0
+
+if __name__ == '__main__':
+    main()
+```
+
+
+## MPI tasks
+
+Implement parallel matrix multiplication using MPI.
+```
+
+
+
+```
+
+
+
+
+
+
+## Exceptions
+
+OverflowError = value too large to hold in memory
+
+
+
+
+
+
+
+
+## time
+
+monotonic() returns seconds since an arbitrary point in the past, and never loops round as time of day might
+```
+import time
+time.monotonic()
+```
+
+
+
+
+
+
+
+
 
 
 ## Importlib
@@ -3271,6 +3770,67 @@ sys.audit('example_event', {'arg1': 'value1', 'arg2': 'value2'})
 ```
 
 
+## sys
+
+Some useful functions:
+```
+sys.getfilesystemencoding()   # eg: utf-8
+sys.getrecursionlimit()
+sys.float_info
+
+# most programs have 3 streams to the user: in, out and error. This returns them
+sys.stdin
+sys.stdout
+sys.stderr
+
+
+#number of memory blocks currently allocated by the interpreter
+sys.getallocatedblocks()
+
+
+# this is ideal duration of the “timeslices” allocated to concurrently running Python threads
+sys.getswitchinterval()
+sys.setswitchinterval()
+```
+
+
+## making a contextmanager with contextlib
+
+This is the abstract example from the docs, which makes a generic context manager which loads a resource:
+```
+from contextlib import contextmanager
+
+@contextmanager
+def managed_resource(*args, **kwds):
+    # Code to acquire resource, e.g.:
+    resource = acquire_resource(*args, **kwds)
+    try:
+        yield resource
+    finally:
+        # Code to release resource, e.g.:
+        release_resource(resource)
+```
+
+Contextlib also has @asynccontextmanager
+
+
+
+## One way to share values across files:
+config.py:
+```
+x = 0   # Default value of the 'x' configuration setting
+```
+mod.py:
+```
+import config
+config.x = 1
+```
+
+
+
+
+
+
 
 ## cProfile and pstats
 
@@ -3350,6 +3910,9 @@ regression test = checking changes made in the codebase do not impact the existi
 primitive calls = calls not induced via recursion
 
 audit event = specific type of system event, such as a function call or attribute access, that is generated by the Python interpreter.
+
+.pyc files = compiled version of a Python script
+
 
 
 
