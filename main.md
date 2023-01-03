@@ -2196,28 +2196,41 @@ if __name__ == '__main__':
     unittest.main()
 ```
 
-Can add lines to create widget so only make it once:
+Can add setUp() and tearDown() to create widget so only make it once:
 ```
 import unittest
-import numpy as np
 
-def Widget():
-    ar = np.random.rand(50,50)
-    return ar
+def check_integer(x):
+    if not isinstance(x, int):
+        raise TypeError('Input must be an integer')
 
-class DefaultWidgetSizeTestCase(unittest.TestCase):
+def Widget(x):
+    return x*2
+
+# checking with unittest class
+class TestCheckInteger(unittest.TestCase):
+    
     def setUp(self):
-        self.widget = Widget()
-        
-    def test_default_widget_size(self):
-        self.assertEqual(self.widget.shape, (50, 50))
+        self.widget = Widget(3)    
+    
+    def test_check_integer(self):
+        self.assertIsInstance(Widget(3), int)
+        self.assertEqual(Widget(10), 20)
+        check_integer(self.widget)
         
     def tearDown(self):
-        del self.widget
+        del self.widget    
+
 
 if __name__ == '__main__':
-    unittest.main()
+    main()
+
 ```
+Run the above with the below if called ut_test.py:
+```
+python -m unittest ut_test.py
+```
+
 
 ```
 # run tests using all files _test.py in 'tests' folder
@@ -3512,14 +3525,26 @@ if __name__ == '__main__':
 ```
 
 
-## MPI tasks
 
-Implement parallel matrix multiplication using MPI.
+## Install MPI on mac
+
+Followed these steps, however think you could skip lines 2 and 3
+```
+brew install open-mpi
+brew unlink open-mpi
+brew install mpich
+brew install libopenmpt
+brew install llvm
+pip3 install mpi4py 
 ```
 
 
+## MPI and kubernetes
 
-```
+There is a MPI Operator for Kubernetes. Can pass messages between nodes in a cluster
+
+
+
 
 
 
