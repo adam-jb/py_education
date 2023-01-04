@@ -3556,6 +3556,263 @@ A: extends the Kubernetes API to create, configure, and manage custom resources
 
 
 
+## socket
+
+Sockets allow communication between two different processes on the same or different machines. 
+
+socket module provides access to the BSD socket interface
+
+BSD socket interface = library of functions that can be used by programs to create and manage network connections, send and receive data, and perform other networking tasks
+
+At a low level, you can access the basic socket support in the underlying operating system, which allows you to implement clients and servers for both connection-oriented and connectionless protocols.
+
+```
+# set up socket
+import socket               # Import socket module
+s = socket.socket()         # Create a socket object
+host = socket.gethostname() # Get local machine name
+port = 12346 
+
+# this does:
+s.bind((host, port))
+
+# this does:
+s.connect((host, port))
+
+```
+The below server code listens for clients on a loop.
+Because this uses TCP connection by default need to explicitly set socket to list (s.listen(5)) and accept a connection from *one* of the incoming clients requesting a connection (can have more than 1 I think, but just have 1 below)
+```
+import socket               # Import socket module
+
+s = socket.socket()         # Create a socket object
+host = socket.gethostname() # Get local machine name
+port = 12346                # Reserve a port for your service.
+s.bind((host, port))        # Bind to the port
+print(s, host, port)
+print(dir(socket))
+print(f'127.0.0.1:{port}')
+
+s.listen(5)                 # Now wait for client connection.
+while True:
+   # c is a connection object
+   c, addr = s.accept()     # Establish connection with client.
+   print(f'Got connection from {addr}')
+   c.send(b'Thank you for connecting')
+   c.close()                # Close the connection
+```
+
+The below client code gets info from the server
+```
+import socket               # Import socket module
+
+s = socket.socket()         # Create a socket object
+host = socket.gethostname() # Get local machine name
+port = 12346                # Reserve a port for your service.
+
+s.connect((host, port))
+print(s.recv(1024))
+s.close()    
+```
+socket has constants to specify the type of connection:
+```
+# TCP
+socket.SOCK_STREAM
+
+# UDP
+socket.SOCK_DGRAM
+
+```
+If you send multiple packets, TCP promises to deliver them in order. UDP does not, so the receiver needs to check them, if the order matters.
+- If a TCP packet is lost, the sender can tell. Not so for UDP which is Connectionless.
+- UDP datagrams are limited in size to some no. of bytes. TCP can send much bigger lumps than that.
+- TCP is a bit more robust and makes more checks. UDP is a shade lighter weight (less computer and network stress).
+
+```
+# Open a UDP (connectionless) server socket and listen for two calls
+
+import socket
+
+# AF_INET is the default address family: IP4
+socketA = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+print(socketA)
+print(type(socketA))
+
+bindAddress = ("", 9999)
+socketA.bind(bindAddress)
+
+counter = 1 
+
+#Receive data two times.
+while counter <= 2:
+	recvData = socketA.recvfrom(100)  # 100 is the buffersize
+	print("\nReceived Data")
+	print(recvData)
+	counter += 1
+
+#Close the server socket.
+socketA.close()
+```
+Code to send data via UDP to the above server:
+```
+import socket
+
+#Open a UDP client socket.
+socketB = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+print(socketB)
+print(type(socketB))
+
+serverAddress = ("", 9999)
+
+#Send some data to the server.
+numBytes = socketB.sendto(b"Hello World", serverAddress)
+print("Sent " + str(numBytes) + " bytes.")
+
+#Send some more data.
+numBytes = socketB.sendto(b"101, 280, 237, 680", serverAddress)
+print("Sent " + str(numBytes) + " bytes.")
+
+#Close the socket.
+socketB.close()
+```
+Setting Socket_Name.setblocking(0) means that the socket would become unblocking. This means that the recvfrom() or recv() calls would return immediately if there is nothing to read.
+
+On non-blocking: for example, if there is no data to be read, then it should return immediately and we can issue recv() call later. The syntax is the same for UCP and UDP: Socket_Name.setblocking(0)
+
+(Good blog with socket code on TCP and UDP in python)[http://www.codingbison.com/python/python-sockets-connection-oriented.html]
+
+
+
+
+## ssl
+
+Transport Layer Security (TLS) encrypts data sent over the Internet to ensure that eavesdroppers and hackers are unable to see what you transmit. TLS layer also known as 'Secure Sockets Layer' (SSL)
+
+ssl module provides a class, ssl.SSLSocket, which is derived from the socket.socket type, and provides a socket-like wrapper that also encrypts and decrypts the data going over the socket with SSL
+
+The Python files which contain certificates can contain a sequence of certificates, sometimes called a certificate chain.
+
+If you are going to create a server that provides SSL-encrypted connection services, you will need to acquire a certificate for that service. Can generate a self-signed certificate with openssl:
+```
+openssl req -new -x509 -days 365 -nodes -out newcert.pem -keyout newcert.pem
+```
+And to view the new certificate:
+```
+openssl rsa -in newcert.pem 
+```
+Haven't run the below but it illustrates wrapping a socket in ssl layer for certified connection
+```
+import socket
+import ssl
+
+# Create a socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Wrap the socket in an SSL context
+ssl_sock = ssl.wrap_socket(sock,
+                           ca_certs="server.crt",
+                           cert_reqs=ssl.CERT_REQUIRED)
+
+# Connect to the server
+ssl_sock.connect(("www.example.com", 443))
+
+# Send and receive data over the SSL connection
+ssl_sock.sendall(b"GET / HTTP/1.1\r\nHost: www.example.com\r\n\r\n")
+response = ssl_sock.recv(1024)
+print(response)
+
+# Close the connection
+ssl_sock.close()
+```
+
+
+
+## select
+
+Provides use of linux's select and poll functions. Both are used to monitor 1+ sockets for events and do something on said events. For example, the below gets caught hanging on select.select(), but the idea is to do something on receipt of data from multiple sockets. 
+```
+import select
+import socket
+
+sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+sock1.bind(("localhost", 15346))
+sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock2.bind(("localhost", 8081))
+
+# Wait for data to be available on either socket for up to 1 second
+ready, _, _ = select.select([sock1, sock2], [], [], 1)
+print(f'ready: {ready}')
+if ready:
+    print('starting loop')
+    while True:
+        # Check which sockets have data available
+        if sock1 in ready:
+            data1 = sock1.recv(1024)
+            print(f'data1 in sock1: {data1}')
+            break
+            # Do something with the data from sock1
+        if sock2 in ready:
+            data2 = sock2.recv(1024)
+            # Do something with the data from sock2
+            print(f'data2 in sock2: {data2}')
+            break
+print('done!')
+
+```
+The below should send data to the above, but hangs on sock1.connect()
+```
+import select
+import socket
+
+sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+sock1.connect(("localhost", 15346))
+sock1.send(b'This is a a msg!')
+sock1.close()   
+```
+poll = similar to the select function, but has the advantage of being able to handle a larger number of file descriptors.
+
+In linux (and probably python too): poll can be used to monitor a variety of file descriptor sources, including sockets, pipes, and regular files. It is commonly used in network programming to monitor multiple sockets for incoming data or connection requests.
+
+
+
+
+## selectors
+
+Higher level, built on select module. Users are encouraged to use this module instead of select, unless they want precise control over the OS-level primitives used.
+
+
+
+
+
+
+
+
+
+
+
+## dnspython
+
+The below gets the IP address for 2 websites
+```
+import dns.resolver
+  
+# Finding records
+result = [dns.resolver.query('geeksforgeeks.org', 'A'),
+          dns.resolver.query('geeksforgeeks.org', 'A')]
+
+# Printing record
+for val in result:
+    print('A Record : ', val[0].to_text())
+```
+
+
+
+
+
+
+
+
+
 ## Exceptions
 
 [Great reference for exceptions](https://www.w3schools.com/python/python_ref_exceptions.asp)
@@ -3939,6 +4196,18 @@ primitive calls = calls not induced via recursion
 audit event = specific type of system event, such as a function call or attribute access, that is generated by the Python interpreter.
 
 .pyc files = compiled version of a Python script
+
+address family = set of protocols that are used to define the format of network addresses, as well as the communication protocol used to exchange data over a network. Common ones are IP4 and IP6
+
+remote direct memory access (RDMA) = 
+
+switched fabric architecture (in the context of infiniband) = 
+
+raw Ethernet frames = 
+
+iWARP protocol = 
+
+
 
 
 
