@@ -2463,17 +2463,72 @@ Ideas:
 - Connection is established to socket from multiple sources
 - When someone sends a message, it's sent to everyone who is connected to it at that moment
 
-May want to use one of:
-1. socketserver 
-2. asyncore
+This is implemented below as server:
+```
+import asyncore
+
+msg_history = []
+
+def get_latest_msgs(msg_history):
+    if len(msg_history) < 10:
+        return '\n'.join(msg_history)
+    else:
+        return  '\n'.join(msg_history[-10:])
+
+
+class EchoHandler(asyncore.dispatcher_with_send):
+
+    def handle_read(self):
+        data = self.recv(8192)
+
+        # add latest msg to msg history
+        global msg_history
+        msg_history.append(data.decode())
+        
+        if data:
+            return_msg = get_latest_msgs(msg_history)
+            print(f'return_msg: {return_msg}')
+            self.send(return_msg.encode())
+
+class EchoServer(asyncore.dispatcher):
+
+    def __init__(self, host, port):
+        asyncore.dispatcher.__init__(self)
+        self.create_socket()
+        self.set_reuse_addr()
+        self.bind((host, port))
+        self.listen(5)
+
+    def handle_accepted(self, sock, addr):
+        print('Incoming connection from %s' % repr(addr))
+        handler = EchoHandler(sock)
+
+# localhost:8983
+server = EchoServer('localhost', 8983)
+asyncore.loop()
+```
+And this script sends a message to the server, getting the latest messages in return:
+```
+import socket               
+
+# connects to a socket on the local machine
+s = socket.socket()         
+host = socket.gethostname() # Get local machine name
+port = 8983                # Reserve a port for your service.
+
+s.connect((host, port))
+s.send(b'username: Adam/nMsg: Hi guys!')
+print(s.recv(1024))    # get latest msgs from server
+s.close() 
 ```
 
 
 
-```
 
 
+## asyncore
 
+How does it work?
 
 
 
