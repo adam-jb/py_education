@@ -1940,7 +1940,7 @@ asyncio.run(aysnc)
 
 ```
 
- shield() wraps a task (which wraps a coroutine) which makes it harder to cancel the execution of the coroutine
+shield() wraps a task (which wraps a coroutine) which makes it harder to cancel the execution of the coroutine
 
 
 Can force a task to timeout:
@@ -2036,6 +2036,235 @@ asyncio.new_event_loop()
 
 ```
 
+### [Notes from superfastpython on asyncio](https://superfastpython.com/python-asyncio/)
+
+Instead of blocking, requests and function calls are issued and executed in the background at some future time. This frees the caller to perform other activities and handle the results of issued calls at a later time when results are available or when the caller is interested.
+
+An asynchronous function call will issue the request to make the function call and will not wait around for the call to complete.
+
+Future = A handle on an asynchronous function call allowing the status of the call to be checked and results to be retrieved.
+
+Asynchronous Task = aggregate of an asynchronous function call and resulting future.
+
+Non-blocking I/O = Performing I/O operations via asynchronous requests and responses
+
+coroutines run in an event loop that runs in a single thread.
+
+Subroutines are entered at one point and exited at another point. Coroutines can be entered, exited, and resumed at many different points.
+
+```
+import asyncio
+
+# define a coroutine
+async def custom_coro():
+    print('a coro is occuring')
+    return 3
+
+# create a task from said coroutine
+task = asyncio.create_task(custom_coro())
+
+# allow task to run: it will run without this, but not immediately
+# await task
+print(task)
+
+# check if a task is done
+if task.done():
+    print('done')
+
+# check if a task was canceled
+if task.cancelled():
+    print('cancelled')
+    
+if not task.done():
+    await task
+res = task.result()
+
+try:
+    # get the return value from the wrapped coroutine
+    value = task.result()
+    print(f'value: {value}')
+except asyncio.CancelledError as e:
+    print(e)
+```
+Preemptive multitasking = type of multitasking in which the operating system can interrupt the execution of a task and give control to another task. This allows multiple tasks to be executed concurrently
+
+Cooperative multitasking = Many coroutines can be created and executed at the same time. They have control over when they will suspend and resume, allowing them to cooperate as to when concurrent tasks are executed
+
+Less overhead to start a coroutine than a thread
+
+```
+# get the exception raised by a task
+exception = task.exception()
+
+# cancel the task
+was_cancelled = task.cancel()
+
+# done callback function
+def handle(task):
+	print(task)
+ 
+# register a done callback function
+task.add_done_callback(handle)
+
+# get the current task
+task = asyncio.current_task()
+
+# get all tasks
+tasks = asyncio.all_tasks()
+
+
+```
+To put multiple coroutines in a group and execute (await) at the same time: asyncio.gather(). eg:
+```
+# execute multiple coroutines
+asyncio.gather(coro1(), coro2())
+```
+We can wait for asyncio tasks to complete via the asyncio.wait() function. eg:
+```
+# create many tasks
+tasks = [asyncio.create_task(task_coro(i)) for i in range(10)]
+
+# wait for all tasks to complete
+done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+
+# or
+done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+# or
+done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+```
+wait_for() is wait() with a timeout, eg:
+```
+await asyncio.wait_for(coro, timeout=10)
+```
+blocking task = task that stops the current thread from progressing. If a blocking task is executed in an asyncio program it stops the entire event loop, preventing any other coroutines from progressing.
+
+```
+# execute a function in a separate thread
+await asyncio.to_thread(task)
+
+# to execute a function in a separate thread
+with concurrent.futures.ProcessPoolExecutor as exe:
+	loop = asyncio.get_running_loop()
+	await loop.run_in_executor(exe, task)
+
+# another way to execute a function in a separate thread
+loop = asyncio.get_running_loop()
+await loop.run_in_executor(None, task)
+```
+
+to_thread() can make a function a coroutine:
+```
+def usual_sync_func():
+	return 2
+
+coro = asyncio.to_thread(usual_sync_func)
+```
+
+async iterators can be made as objects with methods: __aiter__() and __anext__() 
+
+async iterators can be run with 'async for' loop:
+```
+async for item in async_iterator:
+	print(item)
+```
+Example of async iterator:
+```
+# define an asynchronous iterator
+class AsyncIterator():
+    # constructor, define some state
+    def __init__(self):
+        self.counter = 0
+ 
+    # create an instance of the iterator
+    def __aiter__(self):
+        return self
+ 
+    # return the next awaitable
+    async def __anext__(self):
+        # check for no further items
+        if self.counter >= 10:
+            raise StopAsyncIteration
+        # increment the counter
+        self.counter += 1
+        # return the counter value
+        return self.counter
+```
+Asynchronous generator with async for loop
+```
+import asyncio
+ 
+# define an asynchronous generator
+async def async_generator():
+    # normal loop
+    for i in range(10):
+        # block to simulate doing work
+        await asyncio.sleep(1)
+        # yield the result
+        yield i
+ 
+# main coroutine
+async def main():
+    # loop over async generator with async for loop
+    async for item in async_generator():
+        print(item)
+ 
+# execute the asyncio program
+asyncio.run(main())
+```
+asynchronous context manager = object that implements the __aenter__() and __aexit__() methods.
+
+Example of an asynchronous context manager via async with:
+```
+import asyncio
+ 
+# define an asynchronous context manager
+class AsyncContextManager:
+    # enter the async context manager
+    async def __aenter__(self):
+        # report a message
+        print('>entering the context manager')
+        # block for a moment
+        await asyncio.sleep(0.5)
+ 
+    # exit the async context manager
+    async def __aexit__(self, exc_type, exc, tb):
+        # report a message
+        print('>exiting the context manager')
+        # block for a moment
+        await asyncio.sleep(0.5)
+ 
+# define a simple coroutine
+async def custom_coroutine():
+    # create and use the asynchronous context manager
+    async with AsyncContextManager() as manager:
+        # report the result
+        print(f'within the manager')
+ 
+# start the asyncio program
+asyncio.run(custom_coroutine())
+```
+async listcomp:
+```
+result = [a async for a in aiterable]
+```
+Open an async socket connection
+```
+reader, writer = await asyncio.open_connection(...)
+```
+Can also create a tcp server:
+```
+server = await asyncio.start_server(...)
+```
+Can stream to the server with asyncio.StreamWriter() and ingest data with asyncio.StreamReader()
+
+
+Other things one might do in asyncio:
+```
+# cancel the task
+was_cancelled = task.cancel()
+
+```
 
 
 ## aiohttp
@@ -2062,6 +2291,49 @@ t1 = time()
 res = await main()
 time() - t1
 ```
+
+
+
+## high performance networking in python
+
+[Notes from this talk](https://av.tib.eu/media/21244)
+
+async is slower than standard function calls. uvloop helps this (says about 30% faster than standard asyncio) though uvloop was released in 2016 and may not be supported
+
+One way to increase performance: minimise size of data being transferred
+
+recommends using async streams rather than loop.sock* (loop.sock* functions are low level so you have to implement more yourself)
+
+Use protocols and transports for optimising performance at all costs
+
+[asyncpg](https://magicstack.github.io/asyncpg/current/) for faster connection to postgresql. Claims to let you read/write up to 1m rows per second
+
+binary means faster file parsing, so send messages as bytestrings
+
+might precompile and cache encoders and decoders and other commonly used parts of the process, for more speed
+
+asyncpg uses an asyncio protocol
+
+suggests using cython for writing high performance low level code. Says it's easier than C, but is it
+
+says better to work with C data types as working with bytes in python is computationally expensive
+
+if you want speed at the price of going lower level: try using loop.call_later() rather than asyncio.wait_for() as the latter has much more overhead
+
+
+
+
+## Elastic Fabric Adapter (EFA)
+
+An AWS high performance networking technology
+
+"EFA is a network interface for Amazon EC2 instances that enables customers to run applications requiring high levels of inter-node communications at scale on AWS"
+
+[This blog post](https://aws.amazon.com/blogs/hpc/in-the-search-for-performance-theres-more-than-one-way-to-build-a-network/) says MPI codes are only as fast as the slowest rank because packets are sent in order, so the slowest one will hold up all the others. EFA relaxed requirement for in-order packet delivery which did speed it up a lot.
+
+
+
+
 
 
 
@@ -3784,6 +4056,19 @@ Higher level, built on select module. Users are encouraged to use this module in
 
 
 
+## uvloop
+
+uvloop implements the asyncio.AbstractEventLoop interface which means that it provides a drop-in replacement of the asyncio event loop. 
+
+To use uvloop just import it and set the event loop policy as per below
+```
+import asyncio
+import uvloop
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+# define async functions and await them as per standard asyncio...
+
+```
 
 
 
@@ -3808,6 +4093,20 @@ for val in result:
 
 
 
+
+## flask webhooks
+
+A webhook in flask is an endpoint which handles post requests
+```
+from flask import Flask, request, Response
+
+app = Flask(__name__)
+
+@app.route('/webhook_endpoint', methods=['POST'])
+def respond():
+    print(request.json);
+    return Response(status=200)
+```
 
 
 
@@ -4199,6 +4498,8 @@ audit event = specific type of system event, such as a function call or attribut
 
 address family = set of protocols that are used to define the format of network addresses, as well as the communication protocol used to exchange data over a network. Common ones are IP4 and IP6
 
+A datagram = type of network data transmission in which a single unit of data, or a "packet," is transmitted through a network from a source to a destination without being divided into smaller units or guaranteed delivery.
+
 remote direct memory access (RDMA) = 
 
 switched fabric architecture (in the context of infiniband) = 
@@ -4216,7 +4517,7 @@ iWARP protocol =
 
 [Exception hierarchy for reference](https://docs.python.org/3/library/exceptions.html#exception-hierarchy)
 
-
+[In depth and very readable guide to asyncio](https://superfastpython.com/python-asyncio/)
 
 
 
