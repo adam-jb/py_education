@@ -2259,12 +2259,227 @@ server = await asyncio.start_server(...)
 Can stream to the server with asyncio.StreamWriter() and ingest data with asyncio.StreamReader()
 
 
-Other things one might do in asyncio:
+Cancel a task:
 ```
-# cancel the task
 was_cancelled = task.cancel()
+```
+
+
+
+## asyncio tasks
+
+make a service which uses an asyncio protocol:
+```
+# asyncio protocol = class that defines the behavior of a connection using the asyncio module
+
+# going to 127.0.0.1:8899 will activate the protocol
+import asyncio
+
+class EchoServerProtocol(asyncio.Protocol):
+    def connection_made(self, transport):
+        self.transport = transport
+        print('connection made')
+        # do more things now
+
+    def data_received(self, data):
+        self.transport.write(data)
+        print('data received from client')
+        # do more things now
+
+loop = asyncio.get_event_loop()
+coro = loop.create_server(EchoServerProtocol, '127.0.0.1', 8899)
+server = loop.run_until_complete(coro)
+
+# Serve requests until Ctrl+C is pressed
+print('Serving on {}'.format(server.sockets[0].getsockname()))
+try:
+    loop.run_forever()
+except KeyboardInterrupt:
+    pass
+
+# Close the server
+server.close()
+loop.run_until_complete(server.wait_closed())
+loop.close()
+```
+Implement a simple async HTTP server that serves static files from a specified directory.
+
+[Server aiohttp reference](https://docs.aiohttp.org/en/latest/web_reference.html)
+```
+from aiohttp import web
+
+# extract 'name' from url and pass to 'text'
+async def handle(request):
+    name = request.match_info.get('name', "Anonymous") #'Anonymous' if no name give
+    text = "Hello, " + name
+    return web.Response(text=text)
+
+# serve html file
+async def index(request):
+    return web.FileResponse('./index.html')
+
+
+app = web.Application()
+app.add_routes([web.get('/', handle),
+                web.get('/n/{name}', handle),
+               web.get('/index/', index)])
+
+if __name__ == '__main__':
+    web.run_app(app)
+```
+Use asyncio to write a script that asynchronously fetches data from multiple websites and stores the results in a database.
+```
+import asyncio
+import sqlite3
+import aiosqlite
+
+async def create_tb_and_insert_values():
+    async with aiosqlite.connect(':memory:') as db:
+        await db.execute('CREATE TABLE projects (id integer)')
+
+        await db.execute("INSERT INTO projects(id) VALUES(?)", '2')
+        await db.execute("INSERT INTO projects(id) VALUES(?)", ('m'))
+        await db.commit()
+
+        async with db.execute("SELECT * FROM projects") as cursor:
+            print('all rows coming up!')
+            async for row in cursor:
+                print(row)
+
+asyncio.run(create_tb_and_insert_values())
 
 ```
+use asyncio to download and save multiple files asynchronously
+```
+import os
+import asyncio
+import aiohttp  
+import aiofiles  
+
+def download_files_from_report(urls, FILES_PATH):
+    os.makedirs(FILES_PATH, exist_ok=True)   # make directory if it doesn't exist
+    sema = asyncio.BoundedSemaphore(5)
+
+    async def fetch_file(url):
+        fname = url.split("/")[-1]
+        # aiohttp.ClientSession used for making http requests
+        async with sema, aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                assert resp.status == 200
+                data = await resp.read()
+
+        # save file asynchronously with aiofiles
+        async with aiofiles.open(
+            os.path.join(FILES_PATH, fname), "wb"
+        ) as outfile:
+            await outfile.write(data)
+
+    loop = asyncio.get_event_loop()
+    tasks = [loop.create_task(fetch_file(url)) for url in urls]
+        
+    #loop.run_until_complete(asyncio.wait(tasks))
+    loop.run_until_complete(asyncio.gather(*tasks))
+    loop.close()
+    
+urls = ['https://tools.learningcontainer.com/sample-json.json',
+        'https://tools.learningcontainer.com/sample-json.json']
+
+download_files_from_report(urls, "tmpfiles/")
+print('done')
+```
+Send emails asynchronously. Not tested and [copied from stackoverflow](https://stackoverflow.com/questions/60224850/send-mail-python-asyncio), using aiosmtplib for async email sending:
+```
+
+import asyncio
+import aiosmtplib
+import sys
+
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+MAIL_PARAMS = {'TLS': True, 'host': 'xxxxxxxx', 'password': 'xxxxxxxx', 'user': 'xxxxxxxx', 'port': 587}
+
+if sys.platform == 'win32':
+    loop = asyncio.get_event_loop()
+    if not loop.is_running() and not isinstance(loop, asyncio.ProactorEventLoop):
+        loop = asyncio.ProactorEventLoop()
+        asyncio.set_event_loop(loop)
+
+
+async def send_mail_async(sender, to, subject, text, textType='plain', **params):
+    # Default Parameters
+    cc = params.get("cc", [])
+    bcc = params.get("bcc", [])
+    mail_params = params.get("mail_params", MAIL_PARAMS)
+
+    # Prepare Message
+    msg = MIMEMultipart()
+    msg.preamble = subject
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ', '.join(to)
+    if len(cc): msg['Cc'] = ', '.join(cc)
+    if len(bcc): msg['Bcc'] = ', '.join(bcc)
+
+    msg.attach(MIMEText(text, textType, 'utf-8'))
+
+    # Contact SMTP server and send Message
+    host = mail_params.get('host', 'localhost')
+    isSSL = mail_params.get('SSL', False);
+    isTLS = mail_params.get('TLS', False);
+    port = mail_params.get('port', 465 if isSSL else 25)
+    smtp = aiosmtplib.SMTP(hostname=host, port=port, use_tls=isSSL)
+    await smtp.connect()
+    if isTLS:
+        await smtp.starttls()
+    if 'user' in mail_params:
+        await smtp.login(mail_params['user'], mail_params['password'])
+    await smtp.send_message(msg)
+    await smtp.quit()
+
+
+if __name__ == "__main__":
+    email = "xxxxxxxx";
+    co1 = send_mail_async(email,
+              [email],
+              "Test 1",
+              'Test 1 Message',
+              textType="plain")
+    co2 = send_mail_async(email,
+              [email],
+              "Test 2",
+              'Test 2 Message',
+              textType="plain")
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(asyncio.gather(co1, co2))
+    loop.close()
+```
+Use asyncio to implement a chat application where clients can send messages to each other in real-time.
+
+Requirements:
+- Want to handle multiple clients simultaneously and broadcast to them
+
+Ideas:
+- Connection is established to socket from multiple sources
+- When someone sends a message, it's sent to everyone who is connected to it at that moment
+
+May want to use one of:
+1. socketserver 
+2. asyncore
+```
+
+
+
+```
+
+
+
+
+
+
+
+
+
 
 
 ## aiohttp
