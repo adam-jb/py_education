@@ -2530,8 +2530,9 @@ s.close()
 
 How does it work?
 
+The asyncore.dispatcher class is a thin wrapper around a low-level socket object. To make it more useful, it has a few methods for event-handling which are called from the asynchronous loop. Otherwise, it can be treated as a normal non-blocking socket object.
 
-
+asyncore.dispatcher_with_send: subclass of asyncore.dispatcher which adds simple buffered output capability, useful for simple clients. For more sophisticated usage use asynchat.async_chat which is set up for chatrooms.
 
 
 
@@ -3194,11 +3195,290 @@ In an all_gather operation, each process sends a piece of data to all other proc
 
 
 
+## MPI
+
+[Notes from this great in-depth intro](https://pdc-support.github.io/introduction-to-mpi/aio/index.html)
+
+You can directly send buffer-like objects (e.g. NumPy arrays) which provides faster communication and can be useful when working with large data, but require the memory space to be allocated for the receiving buffer prior to communication. These methods start with uppercase letters, e.g. Send and Recv.
+
+In the data parallel paradigm, there are many different data and the same operations (instructions in assembly language) are performed on these data at the same time. The other paradigm is message passing, which is what MPI does.
+
+Open MultiProcessing (openmp) implements data parallel: it allows multiprocessing and shared data within the process. Numba can use openmp, but uses something else by default which the docs say work better.
+
+Several standard patterns of communication: Trivial, Queue, Master / Worker, Domain Decomposition, All-to-All.
+
+Can use a 'parallel profiler' to monitor how much time is spent passing messages vs computer. One is 'ARM Performance Reports'
+
+After getting a general overview of the performance through ARM Performance Reports, one can start digging deeper using a full-fledged profiler like ARM MAP
+
+Other parallel profilers include:
+- Scalasca - a free and open source parallel profiler developed by three German research centers.
+- CrayPat - performance analysis tool offered by Cray for the XC platform.
+- TAU
+- VAMPIR
+- Paraver
+
+
+Q:
+in MPI what are the send and receive buffers and how are they used?
+A: 
+When a process wants to send data using MPI, it typically first writes the data to the send buffer and then invokes an MPI function to send the data. The MPI function will then transfer the data from the send buffer to the network for transmission to the destination process.
+
+When a process wants to receive data using MPI, it typically first invokes an MPI function to receive the data, which will then transfer the data from the network to the receive buffer. The process can then access the data in the receive buffer to read or process it.
+
+
+
+Q:
+what happens when isend() is called, and what happens when req.wait() is called?
+
+A: 
+In MPI, the isend() function initiates a non-blocking send operation, meaning that it starts sending the message but does not wait for the send to be completed before returning control to the program. The isend() function returns a request object, which represents the ongoing send operation. The request.wait() function can be called at a later point to wait for the send operation to be completed.
+
+If the request.wait() function is not called, the send operation will continue in the background and the message will eventually be sent, but the program will not wait for the send to be completed before continuing execution. This can be useful in certain cases where the program needs to perform other tasks while the message is being sent.
+
+
+
+
+Q:
+in python what is a buffer-like object?
+
+A:
+A buffer-like object in Python is an object that implements the buffer protocol, which is a set of methods that allow an object to be treated as a contiguous memory buffer. The buffer protocol consists of the following methods:
+
+obj.__buffer__(): This method returns a memoryview object that points to the object's memory buffer.
+obj.__len__(): This method returns the length of the object's memory buffer, in bytes.
+obj.__getitem__(): This method is used to retrieve a slice of the object's memory buffer.
+
+Buffer-like objects are often used to pass data between different parts of a Python program, or between Python and other programming languages. Some examples of buffer-like objects in Python include bytes, bytearray, memoryview, np array.
+
+
+
+
+Q:
+code to send buffer-like object with Send and Recv, inc allocation of memory for receiving buffer before sending
+
+A: 'data' for rank 1 is the allocated memory for the receiving buffer. This is sending data via a numpy array, which is fast as no encoding/decoding to do. 
+
+[Source: mpi4py docs](https://mpi4py.readthedocs.io/en/stable/tutorial.html#point-to-point-communication)
+```
+from mpi4py import MPI
+import numpy
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+
+# passing MPI datatypes explicitly
+if rank == 0:
+    data = numpy.arange(1000, dtype='i')
+    comm.Send([data, MPI.INT], dest=1, tag=77)
+elif rank == 1:
+    data = numpy.empty(1000, dtype='i')
+    comm.Recv([data, MPI.INT], source=0, tag=77)
+
+# automatic MPI datatype discovery: same as above without specifying MPI.INT
+if rank == 0:
+    data = numpy.arange(100, dtype=numpy.float64)
+    comm.Send(data, dest=1, tag=13)
+elif rank == 1:
+    data = numpy.empty(100, dtype=numpy.float64)
+    comm.Recv(data, source=0, tag=13)
+```
+
+Domain decomposition MPI pattern of comms = divide the data into domains. Each rank will handle the simulation within its own domain.
+
+Manager / worker MPI pattern of comms = We hire a manager to distribute tasks to the workers. In an MPI implementation, the main function will usually contain an if statement that determines whether the rank is the manager or a worker. The manager can become one of the workers after finishing managerial work.
+
+
+If you need an image which include mpi4py [try this image](https://hub.docker.com/r/dispel4py/docker.openmpi/)
+
+
+Example manager / worker pattern for MPI (generated by GPT and not run and may have some errors). If doing matrix manipulation the manager could read in the input matrix from a file, and save it when the output matrix is returned to it, or have the final rank save the output matrix
+```
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+
+# Manager
+if rank == 0:
+    tasks = ['task1', 'task2', 'task3']
+    for task in tasks:
+        comm.send(task, dest=1, tag=11)
+    for i in range(1, comm.size):
+        comm.send(None, dest=i, tag=22)
+
+# Worker
+else:
+    while True:
+        task = comm.recv(source=0, tag=11)
+        if task is None:
+            break
+        print(f"Worker {rank} is processing {task}")
+```
+
+To run an mpi script on 4 processors:
+```
+mpiexec -n 4 python mpi_script.py
+```
+
+
+[700 slides in depth about MPI and HPC](https://fs.hlrs.de/projects/par/par_prog_ws/pdf/mpi_3.1_rab.pdf)
+
+synchronous send operation blocks until receive confirmation is posted from receiver to sender
+
+all nonblocking procedures must have a matching req.wait() at some point. Up to then the message is sent and other things are done without waiting for confirmation of receipt
+
+[Slide 79](https://fs.hlrs.de/projects/par/par_prog_ws/pdf/mpi_3.1_rab.pdf) for datatypes one can specify for the buffer
+
+Halo communication = each node communicates data on the nodes either side of it. 
+
+Q:
+If a 'halo communication' system is 'circular', what does that mean? 
+A: 
+The final node communicates to the first node
+
+May wish to use a master node to distribute tasks in order to maximise use of compute of all ranks
+
+For circular halo communication (eg: where matrix is going through several loops of transforms in all the nodes) may want to store list of isend() requests, and only wait for them when the next iteration of the passed matrix comes around. For example: if 4 ranks, would be storing 4 isend() requests at a given time, and just before getting a matrix with irecv() could wait() for the isend() req corresponding to the matrix which has now completed the loop and returned to this rank.
+
+AllToAll
+
+Could split the MPI Communicator into subcommunicators: this *may* help scaling performance
+
+MPI has communicators for specific topologies, eg: mpi4py.MPI.Cartcomm
+
+Communications with most expensive at top:
+- Node to node
+- CPU to CPU
+- Core to core
+
+
+
+
+
+
+
+
+
+## Infiniband
+
+IB verbs are abstract representations of functions. You can think of IB verbs as functions/methods that have to be offered by an (IB)-API.
+
+
+
+
+## NVLink
+
+
+
+
+
+## PCIexpress
+
+
+
+
+
+
+
+
+## Optimise load balancing across multiple zones
+
+Ideas:
+- istio to make single mesh which load balances across clusters in various zones
+- direct traffic to next-closest zone if not the actual closest zone
+- if load balancing with MPI and deciding which cluster to send work to: factor in how much (1) compute is free in each zone, (2) time to transfer data across network, (3) time to encode and decode data on transger, (4) anticipated demand for compute coming up (eg: if a large number of subtasks involving lots of intercommunication are coming up, might want to keep a larger cluster free until that comes up so all these subtasks can communicate easily)
+
+
+
+
+
+## Adding health alerts from Kubernetes clusters
+
+Ideas:
+- prometheus lets you alert based on events, like (1) pinging nodes to check their health & logging rate of failure, (2) % of compute used by cluster
+- bash script to look for pods with status.phase=Failed, then notify where this happens
+- graphana or datadog to view overall cluster usage
+- Ansible playbooks can be used to automate the monitoring of a Kubernetes cluster by setting up a series of tasks that can be run on a regular basis to check the status and health of the cluster and its components. Eg: get pods, get services, top nodes, logs
+
+
+
+
+
+## Managing a giant kubernetes cluster
+
+Ideas:
+- loki or Falcon LogScale for getting all logs in general. Or use bash script & ansible to send all logs to a ingester endpoint (an async server)
+- Kops or Rancher to manage the deployment and configuration of your cluster.
+- cicd with GitLab/Jenkins/something to automate build and test on smaller scale, then deployment
+- make helm charts to create consistent applications
+- prom and graphana
+- use Ansible to provision k8s resources: example of two ways to provision a k8s namespace with an Ansible yaml playbook below:
+
+```
+# Create a new namespace with in-line YAML.
+- name: Create a kubernetes namespace
+  kubernetes:
+    api_endpoint: 123.45.67.89
+    url_username: admin
+    url_password: redacted
+    inline_data:
+      kind: Namespace
+      apiVersion: v1
+      metadata:
+        name: ansible-test
+        labels:
+          label_env: production
+          label_ver: latest
+        annotations:
+          a1: value1
+          a2: value2
+    state: present
+
+# Create a new namespace from a YAML file.
+- name: Create a kubernetes namespace
+  kubernetes:
+    api_endpoint: 123.45.67.89
+    url_username: admin
+    url_password: redacted
+    file_reference: /path/to/create_namespace.yaml
+    state: present
+```
+
+
+
+
+
+
+## Migrating a cloud deployment to Terraform
+
+Ideas:
+- use ansible or another config management tool to run code on newly provisioned resources
+- version control your IaC
+- Terraform Enterprise provides a '/_health_check' endpoint for an instance.
+- make and use modules
+- migrate chunks at a time, not all at once
+
+
+
+
+
+## Design and build fault-tolerant infrastructure to support running large-scale jobs reliably despite failures of individual nodes
+
+Ideas:
+- redundant storage for nodes which is written to periodically as models train (frequency will depend on 1. failure rate of nodes, 2. cost of moving data to storage)
+- reprovision nodes automatically with kubernetes and containers. Alerts could depend on (1) failure to reprovision, (2) low number of nodes available relative to the rate of failure - so can provision them before anyone else does, and you could write a script to do the provisioning when this occurs, (3) cost of failure based on the tasks running and cost of data loss
+
+
+
+
+
+
+
+
 ## How does Reinforcement Learning with Human Feedback (RLHF) apply to transformers?
 
 Unfinished notes from this article: https://huggingface.co/blog/rlhf
-
-Human augmented text = 
 
 The training dataset of prompt-generation pairs for the RM is generated by sampling a set of prompts from a predefined dataset
 
