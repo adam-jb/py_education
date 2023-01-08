@@ -1,5 +1,13 @@
 
 
+
+## 
+
+
+
+
+
+
 ## iterators
 
 To create an object/class as an iterator you have to implement the methods __iter__() and __next__() to your object.
@@ -14,7 +22,7 @@ In Python, a container object is an object that can hold other objects. Some exa
 
 ## bytearray vs bytes
 
-Bytestrings can have similar methdos to strings, in strip, split, expandtabs, replace, join, partition, startswith, index, isalnum, isalpha, zfill (which adds prefix of zeroes), and more
+Bytestrings can have similar methods to strings, in strip, split, expandtabs, replace, join, partition, startswith, index, isalnum, isalpha, zfill (which adds prefix of zeroes), and more
 
 A minority of others are specific to bytestrings: centre, and more
 
@@ -37,6 +45,8 @@ Times you might use bytearrays:
 
 
 ## Memoryviews
+
+memoryview = object that allows you to access the memory of an object's data buffer directly, without creating a new object.
 
 The buffer protocol is a way for Python objects to expose their memory as a contiguous block of bytes that can be accessed and modified using the memoryview class
 
@@ -188,7 +198,7 @@ textwrap.shorten("Hello world", width=10, placeholder="...")
 
 ## Zoneinfo
 
-For timezoens. Might be a daylight-savings-safe alternative to datetime
+For timezones. Might be a daylight-savings-safe alternative to datetime
 
 ```
 from zoneinfo import ZoneInfo
@@ -248,41 +258,6 @@ d.__setitem__("key", "value")
 ```
 
 
-
-
-## ChainMap
-
-Combines dictionaries without actually moving memory around, which dict.update() does
-
-```
-from collections import ChainMap
-baseline = {'music': 'bach', 'art': 'rembrandt'}
-adjustments = {'art': 'van gogh', 'opera': 'carmen'}
-cmp = ChainMap(adjustments, baseline)
-cmp.get('art')
-```
-
-
-
-
-## Counter
-
-Used for tallying things
-
-```
-from collections import Counter
-
-cnt = Counter()
-for word in ['red', 'blue', 'red', 'green', 'blue', 'blue']:
-    cnt[word] += 1
-print(cnt)
-
-# Find the ten most common words in Hamlet
-import re
-words = re.findall(r'\w+', open('http://www.buildingjavaprograms.com/code_files/3ed/ch06/hamlet.txt').read().lower())
-Counter(words).most_common(10)
-
-```
 
 
 
@@ -573,7 +548,7 @@ for key, group in itertools.groupby(L, key_func):
 
 
 
-# combine iterables to tuples: fills shorter inputs rather than dropping them as 'list(zip('ABCD', 'xyK'))' does
+# combine values in iterables to tuples: fills shorter inputs rather than dropping them as 'list(zip('ABCD', 'xyK'))' does
 for i in itertools.zip_longest('ABCD', 'xyK', fillvalue='-'):
     print(i)
 
@@ -1022,7 +997,6 @@ print(bz2.decompress(bz2.compress(b'aa')))
 
 ## configparser
 
-
 ```
 ## makes ini file in the next chunk
 import configparser
@@ -1325,6 +1299,7 @@ import logging.config
 logging.config.fileConfig('logging.conf')
 ```
 
+
 Where logging.conf might look something like:
 ```
 [loggers]
@@ -1443,7 +1418,7 @@ import numba
 import threading
 value_float = numba.float64
 
-typed_dict = Dict.empty(
+typed_dict = numba.typed.Dict.empty(
     key_type=value_float,
     value_type=value_float
     )
@@ -1538,7 +1513,7 @@ from time import sleep
 from random import random
 from multiprocessing import Process
 from multiprocessing import Semaphore
- 
+
 # target function
 def task(semaphore, number):
     # attempt to acquire the semaphore
@@ -1617,6 +1592,7 @@ The main difference between mp.Pool.apply() and mp.Pool.apply_async() is that ap
 
 Using lock as context manager:
 ```
+some_lock = mp.Lock()
 with some_lock:
     # do something...
 ```
@@ -1685,8 +1661,6 @@ for t in threads:
     t.join()
 
 ```
-
-
 
 THE GIL isn't held for threading when it comes to io. Haven't tested the below on larger files to confirm whether it is using multiple cores or not
 ```
@@ -1992,7 +1966,7 @@ except asyncio.CancelledError:
 asyncio.wait_for()
 
 
-# schedule and wait for multiple tasks concurrently
+# wait for multiple tasks concurrently. This is a blocking function (ie, stop and wait)
 asyncio.gather()
 
 
@@ -2330,7 +2304,6 @@ if __name__ == '__main__':
 Use asyncio to write a script that asynchronously fetches data from multiple websites and stores the results in a database.
 ```
 import asyncio
-import sqlite3
 import aiosqlite
 
 async def create_tb_and_insert_values():
@@ -2536,6 +2509,17 @@ asyncore.dispatcher_with_send: subclass of asyncore.dispatcher which adds simple
 
 
 
+
+
+## bisect
+
+Using bisect for binary search:
+```
+def searchMatrix(self, matrix: List[List[int]], target: int) -> bool:
+    m =  [item for sublist in matrix for item in sublist]
+    r = bisect_left(m, target)
+    return r < len(m) and m[r] == target
+```
 
 
 ## aiohttp
