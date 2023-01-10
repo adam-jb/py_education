@@ -1,0 +1,28 @@
+
+Slurm notes: https://slurm.schedmd.com/SC22/Slurm-and-or-vs-Kubernetes.pdf
+
+
+Slurm covers several related HPC systems management tasks
+○ Job queuing and prioritization
+○ Job accounting
+○ User access control to compute resources (cgroups, pam_slurm_adopt)
+○ Large-scale job launch (MPI, PMIx, nss_slurm, sbcast)
+
+
+Whereas K8s would launch things as pods or jobs
+
+
+"MPI Operator" is the most commonly used component to ensure k8s pods launch concurrently
+
+
+Slurm seems well set up for batch workloads; K8s for deploying long-lived services
+
+
+
+
+
+
+
+
+
+

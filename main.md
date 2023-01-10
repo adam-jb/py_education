@@ -3339,6 +3339,15 @@ Communications with most expensive at top:
 
 
 
+## MPI tutorials 
+
+[All from here](https://mpitutorial.com/tutorials/introduction-to-groups-and-communicators/)
+
+MPI Groups allow overlapping membership: ranks can below to multiple groups
+
+
+
+
 
 
 
@@ -3557,7 +3566,7 @@ Virtual Private Gateways = logical representation of a VPN
 
 The VPN server authenticates the client
 
-The VPN server and the client establish a secure connection using a VPN protoco
+The VPN server and the client establish a secure connection using a VPN protocol
 
 Once the secure connection is established, the client can access the resources on the private network as if it were connected directly to the private network.
 
@@ -3610,7 +3619,7 @@ class TestAngle(unittest.TestCase):
 
 Perhaps unit testing is best for seeing how your widget behaves generally. It won't tell you if you're getting results which look about right but aren't perfect. 
 
-The setup() and teardown() methods you create for your testing class can be complicated (eg: making a new folder structure) 
+The setUp() and tearDown() methods you create for your testing class can be complicated (eg: making a new folder structure) 
 
 
 
@@ -4264,7 +4273,7 @@ def worker(q):
     print(g)
     return 0
     
-    
+
 if __name__ == '__main__':
     pool = mp.Pool()
     m = mp.Manager()
@@ -4272,10 +4281,11 @@ if __name__ == '__main__':
     for name in range(20):
         q.put(f"msg {name}")
         
-    # important to add a comma after 'q' input, or it is interpreted as a list of single characters, or wrong in some other way
-    for i in range(3):
-        pool.apply_async(worker, (q,))
         
+    # important to add a comma after 'q' input, or it is interpreted as a list of single characters, or wrong in some other way
+    for i in range(20):
+        pool.apply_async(worker, (q,))
+
     pool.close()
     pool.join()
 
