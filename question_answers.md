@@ -378,6 +378,143 @@ if __name__ == "__main__":
 ```
 
 
+
+## unittest decorators
+```
+@unittest.skip(reason)
+Unconditionally skip the decorated test. reason should describe why the test is being skipped.
+
+@unittest.skipIf(condition, reason)
+Skip the decorated test if condition is true.
+
+@unittest.skipUnless(condition, reason)
+Skip the decorated test unless condition is true.
+
+@unittest.expectedFailure
+```
+
+
+
+## unittest.mocks
+
+mock objects can be created using the @patch decorator, eg:
+```
+from unittest.mock import patch
+
+@patch('some_module.some_object')
+def test_something(mocked_object):
+    print(mocked_object)
+
+## this does the same as the three lines above:
+def test_something():
+    with patch('some_module.some_object') as mocked_object:
+        print(mocked_object)
+
+
+```
+
+MagicMock is a subclass of Mock with all the magic methods pre-created and ready to use
+
+Q: what is a mock side effect?
+A: a function you can call to determine the value the mock returns, instead of hardcoding it in the mock
+
+Example of a side effect in a test (this is to run on the 'Calculator' class defined in the next cell below):
+```
+def mock_sum(a, b):
+    # mock sum function without the long running time.sleep
+    return a + b
+
+class TestCalculator3(TestCase):
+    @patch('main.Calculator.sum', side_effect=mock_sum)
+    def test_sum(self, sum):
+        self.assertEqual(sum(2,3), 5)
+        self.assertEqual(sum(7,3), 10)
+
+```
+
+Example of thing needing testing:
+```
+import requests
+
+class Calculator:
+    def sum(self, a, b):
+        return a + b
+
+class Blog:
+    def __init__(self, name):
+        self.name = name
+
+    def posts(self):
+        response = requests.get("https://jsonplaceholder.typicode.com/posts")
+
+        return response.json()
+
+    def __repr__(self):
+        return '<Blog: {}>'.format(self.name)
+```
+Example of tests which run on it:
+```
+from unittest import TestCase
+from main import Calculator
+from unittest.mock import patch, Mock
+
+
+
+class TestCalculator(TestCase):
+    def setUp(self):
+        self.calc = Calculator()
+
+    def test_sum(self):
+        answer = self.calc.sum(2, 4)
+        self.assertEqual(answer, 6)
+
+    def test_sum(self):
+        answer = self.calc.sum(3, 4)
+        self.assertEqual(answer, 7)
+
+
+
+# instead of reading in the actual func, this makes a dummy called 'sum' which always returns 9
+class TestCalculator2(TestCase):
+    @patch('main.Calculator.sum', return_value=9)
+    def test_sum(self, sum):
+        self.assertEqual(sum(2,3), 9)
+
+
+
+
+# MockBlog is a variable name and you can call it whatever you want
+class TestBlog(TestCase):
+    @patch('main.Blog')
+    def test_blog_posts(self, MockBlog):
+        blog = MockBlog()
+
+        # set predefined json to return as part of the mock
+        blog.posts.return_value = [
+            {
+                'userId': 1,
+                'id': 1,
+                'title': 'Test Title',
+                'body': 'Far out in the uncharted backwaters of the unfashionable  end  of the  western  spiral  arm  of  the Galaxy\ lies a small unregarded yellow sun.'
+            }
+        ]
+        response = blog.posts()
+        self.assertIsNotNone(response)
+        self.assertIsInstance(response[0], dict)
+
+
+```
+
+
+[Good blog post on basic mocks](https://semaphoreci.com/community/tutorials/getting-started-with-mocking-in-python)
+
+
+
+
+
+
+
+
 ## unittests to check the server created in the previous section is operating well
 
 - what setUp() things will need to be created? 
