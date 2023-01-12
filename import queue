@@ -1,0 +1,8 @@
+import queue
+from logging.handlers import QueueHandler
+
+log_queue     = queue.Queue()
+queue_handler = QueueHandler(log_queue)  # Non-blocking handler.
+
+root = logging.getLogger()
+root.addHandler(queue_handler) 

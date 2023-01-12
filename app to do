@@ -1,0 +1,84 @@
+
+
+
+svelte isnt too much overhead
+
+
+
+
+svelte has components
+
+each component is html, js, css 
+
+uses 'carbon' library for styling
+
+uses bind:props to create two-way binding
+
+svelte has a 'store' global variable which stores status of various things: used for bindings
+
+also global variable for what you're hovering over
+
+recommends svelte.dev tutorials 
+
+dustin recommends this as easier than vanilla js
+
+find node dev mode which automatically updates: run npm dev: called 'hot model reloading' which npm dev does automatically
+
+
+
+app tracks state of inputs as a geojson file: this is then transformed to request when it is sent
+
+>svelte doesnt have a file uploader yet: could make a component which is a file upload button, and appends to the geojson. Will need to bind to something to get it uploaded. And will update the map on appending on the geojson
+
+>do something with API response: choropleth in map and summary in right-hand pane. Might want to store responses from the API in a global variable (stores.js has methods one can use for this). 
+
+>Also want to download results: make another component to download and bind things
+
+there is a function called 'load base scores' which gives you the geometries with the scores so you have the option of making a new geojson layer with the differences: this could be used for the map, and could be exported to csv (with the choropleth element removed)
+
+
+
+
+
+
+
+
+
+## to discuss
+
+app to be demoed in 2 weeks: will is getting the main thing working
+
+permanent dummy api endpoint - will can set this up
+
+
+
+
+
+talk about next steps
+
+
+
+
+
+## to do
+
+JWT for API
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
