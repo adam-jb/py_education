@@ -622,6 +622,8 @@ kubectl get -o yaml pytorchjobs pytorch-simple -n kubeflow
 
 A way of specifying all the steps: training, converting the model to onnx and serving. Then you compile and run the pipeline.
 
+Though you could save the torch model as onnx as soon as it's trained with torch.onnx.export() in py
+
 ```
 from kfp import dsl
 
