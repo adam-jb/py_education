@@ -367,6 +367,23 @@ Application Layer (Layer 7) is located on the end devices such as PCs and server
 
 
 
+##### Examples of protocols used for each of the OSI layers
+
+Layer 1 (Physical): Ethernet, Fiber Distributed Data Interface (FDDI), Serial Line Internet Protocol (SLIP)
+
+Layer 2 (Data Link): Address Resolution Protocol (ARP), Point-to-Point Protocol (PPP), Media Access Control (MAC)
+
+Layer 3 (Network): Internet Protocol (IP), Internet Control Message Protocol (ICMP), Routing Information Protocol (RIP)
+
+Layer 4 (Transport): Transmission Control Protocol (TCP), User Datagram Protocol (UDP), Stream Control Transmission Protocol (SCTP)
+
+Layer 5 (Session): Remote Procedure Call (RPC), Session Announcement Protocol (SAP)
+
+Layer 6 (Presentation): Simple Object Access Protocol (SOAP), Extensible Markup Language (XML)
+
+Layer 7 (Application): Hypertext Transfer Protocol (HTTP), File Transfer Protocol (FTP), Simple Mail Transfer Protocol (SMTP). REST APIs are based on HTTP so are Layer 7.
+
+
 
 
 
@@ -395,7 +412,6 @@ To achieve a 100G backbone, several key components are needed:
 - High-speed Interfaces: Network devices must have 100G interfaces, such as 100G Ethernet, that are capable of transmitting and receiving data at 100G data rates.
 - High-speed Protocols: The network must use protocols that are optimized for high-speed transmission, such as MPLS (Multiprotocol Label Switching) and MPLS-TP (MPLS Transport Profile)
 - Quality of Service (QoS): A 100G backbone must have the ability to prioritize different types of traffic, such as voice and video, and ensure that they are delivered with the appropriate level of performance.
-
 
 
 
