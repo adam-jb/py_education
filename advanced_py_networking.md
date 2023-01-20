@@ -391,7 +391,6 @@ Layer 7 (Application): Hypertext Transfer Protocol (HTTP), File Transfer Protoco
 
 
 
-
 Q: what is a MAC address?
 A: MAC Addresses are unique 48-bits hardware number of a computer, which is embedded into a network card (known as a Network Interface Card) during the time of manufacturing. MAC Address is also known as the Physical Address of a network device
 
