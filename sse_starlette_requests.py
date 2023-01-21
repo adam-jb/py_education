@@ -23,7 +23,7 @@ async def sse(request):
     return EventSourceResponse(generator)
 
 routes = [
-    Route("/", endpoint=sse, methods=["GET", "POST"])
+    Route("/", endpoint=sse)
 ]
 
 app = Starlette(debug=True, routes=routes)
